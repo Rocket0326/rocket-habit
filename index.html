@@ -147,6 +147,11 @@ main.panel { flex: 1; padding: 12px; overflow-y: auto; min-width: 0; }
 .sub.基础 { background: var(--mint-soft); color: var(--mint-deep); }
 .sub.拓展 { background: #fff3d6; color: #c08a00; }
 @media (prefers-color-scheme: dark){ .sub.拓展 { background:#4a3d18; color:#f2b705; } }
+/* 拓展任务锁定（基础未完成前） */
+.task.locked .chk, .task.locked .choice-opt, .task.locked .substar, .task.locked .stars, .task.locked .habit-item { pointer-events: none; filter: grayscale(.6); opacity: .5; }
+.lock-note { background: #fff7fb; border: 1px solid #f7c8dd; color: #b5447a; border-radius: 12px; padding: 8px 12px; margin: 4px 0 10px; font-size: 13px; font-weight: 600; line-height: 1.4; }
+.ext-lock-badge { font-size: 12px; color: #b5447a; background: #fff0f6; border: 1px solid #f7c8dd; border-radius: 999px; padding: 2px 10px; margin-left: 6px; font-weight: 600; vertical-align: middle; }
+@media (prefers-color-scheme: dark){ .lock-note { background:#3a2630; color:#ffb3d4; border-color:#6b2f4a; } .ext-lock-badge { background:#3a2630; color:#ffb3d4; border-color:#6b2f4a; } }
 .task .toggle { font-size: 13px; color: var(--text-soft); background: none; padding: 4px 8px; white-space: nowrap; }
 .task-actions { display: flex; gap: 8px; margin: 8px 0 6px 36px; }
 .task-actions button { font-size: 13px; padding: 5px 10px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; }
@@ -2445,14 +2450,28 @@ window.__CHARS_6B__ = [
   }
 
   // ---------- 完成 / 评星 ----------
-  function toggleDone(taskId) {
-    var day = ensureToday();
+  function toggleDone(taskId) {    var day = ensureToday();
     var t = day.tasks.find(function (x) { return x.id === taskId; });
     if (!t || !t.enabled) return;
     t.done = !t.done;
     if (t.done) { t.completedAt = new Date().toISOString(); t.earlyBonus = minutesNow() < EARLY_BONUS_HOUR * 60; if (t.type === "reading") t.readAward = registerReading("每日阅读"); }
     else { t.completedAt = null; t.score = null; t.scoredToday = false; t.earlyBonus = false; }
     saveDB(); renderDay(); maybeCelebrate();
+  }
+
+  // ---------- 拓展任务解锁条件：基础任务全部完成 ----------
+  function basicAllDone(tasks) {
+    var basics = (tasks || []).filter(function (t) { return t.enabled && t.sub !== "拓展"; });
+    if (!basics.length) return true; // 没有基础任务时无需阻挡
+    return basics.every(function (t) { return !!t.done; });
+  }
+  function isExtTask(id) {
+    var t = findTask(id);
+    return !!(t && t.sub === "拓展");
+  }
+  function currentCatBasicsDone() {
+    var day = ensureToday();
+    return basicAllDone(day.tasks.filter(function (t) { return t.cat === STATE.cat; }));
   }
 
   function setScore(taskId, star) {
@@ -3007,8 +3026,9 @@ window.__CHARS_6B__ = [
     var body = "";
     var base = tasks.filter(function (t) { return t.sub !== "拓展"; });
     var ext = tasks.filter(function (t) { return t.sub === "拓展"; });
-    if (base.length) body += '<div class="sub-head">📗 基础作业</div><div class="task-grid">' + base.map(function (t) { return taskHTML(t, day); }).join("") + '</div>';
-    if (ext.length) body += '<div class="sub-head">🚀 拓展作业（×1.2 星）</div><div class="task-grid">' + ext.map(function (t) { return taskHTML(t, day); }).join("") + '</div>';
+    var extLocked = !basicAllDone(tasks);
+    if (base.length) body += '<div class="sub-head">📗 基础作业</div><div class="task-grid">' + base.map(function (t) { return taskHTML(t, day, false); }).join("") + '</div>';
+    if (ext.length) body += '<div class="sub-head">🚀 拓展作业（×1.2 星）' + (extLocked ? ' <span class="ext-lock-badge">🔒 基础未完成</span>' : '') + '</div><div class="task-grid">' + ext.map(function (t) { return taskHTML(t, day, extLocked); }).join("") + '</div>';
     var pEl = $("#panel");
     var prevTop = pEl ? pEl.scrollTop : 0;
     pEl.innerHTML = renderCalendar() + banner + body;
@@ -3016,7 +3036,7 @@ window.__CHARS_6B__ = [
     renderRocket(); renderAssets();
   }
 
-  function taskHTML(t, day) {
+  function taskHTML(t, day, extLock) {
     var _name = t.title;
     var _desc = t.desc;
     if (!t.enabled) {
@@ -3025,6 +3045,7 @@ window.__CHARS_6B__ = [
         '<div class="task-actions"><button class="ghost" data-act="task-edit" data-id="' + t.id + '">✏ 编辑</button><button class="ghost warn" data-act="task-del" data-id="' + t.id + '">🗑 删除</button></div></div>';
     }
     var subCls = t.sub === "拓展" ? "拓展" : "基础";
+    var extLockedOn = !!extLock && t.sub === "拓展" && !t.done;
     var locked = !canRate() && !(t.score != null);
     var chkHtml = "";
     if (t.type === "choice" || t.type === "chore") {
@@ -3034,7 +3055,8 @@ window.__CHARS_6B__ = [
       var chkMark = t.done ? "✓" : "";
       chkHtml = '<div class="chk ' + chk + '" data-act="done" data-id="' + t.id + '">' + chkMark + '</div>';
     }
-    var html = '<div class="task ' + (t.done ? "done" : "") + '" data-id="' + t.id + '">';
+    var html = '<div class="task ' + (t.done ? "done" : "") + (extLockedOn ? " locked" : "") + '" data-id="' + t.id + '">';
+    if (extLockedOn) html += '<div class="lock-note">🔒 完成全部基础任务后，才能解锁拓展任务</div>';
     html += '<div class="row1">' + chkHtml;
     html += '<div class="name">' + esc(_name) + '</div>';
     html += '<div class="meta"><span class="sub ' + subCls + '">' + subCls + (t.sub === "拓展" ? "(×1.2)" : "") + '</span>';
@@ -3643,6 +3665,10 @@ window.__CHARS_6B__ = [
 
   function handlePanelAct(el) {
     var act = el.getAttribute("data-act"), id = el.getAttribute("data-id");
+    // 拓展任务锁：当前分类的基础任务未全部完成前，禁止完成 / 选择 / 评星拓展任务
+    if ((act === "done" || act === "choice" || act === "sub-rate" || act === "sub-rate-undo" || act === "life-done") && isExtTask(id) && !currentCatBasicsDone()) {
+      toast("🔒 请先完成全部基础任务，再完成拓展任务"); return;
+    }
     if (act === "cal-toggle") { calendarCollapsed = !calendarCollapsed; _calCache.sig = ""; renderDay(); return; }
     if (act === "done") { toggleDone(id); }
     else if (act === "choice") {
