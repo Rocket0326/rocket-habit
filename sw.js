@@ -1,6 +1,6 @@
 // Rocket habit PWA service worker
 // Bump CACHE_VERSION only when a real content update ships (deploy script handles it).
-const CACHE_VERSION = 'rocket-habit-ff62e030';
+const CACHE_VERSION = 'rocket-habit-750852c0';
 const APP_SHELL = [
   '/rocket-habit/',
   '/rocket-habit/index.html',
