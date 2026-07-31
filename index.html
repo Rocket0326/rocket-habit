@@ -106,7 +106,7 @@ main.panel { flex: 1; padding: 12px; overflow-y: auto; min-width: 0; }
 }
 .ring { width: 54px; height: 54px; flex-shrink: 0; }
 .ring text { font-size: 13px; font-weight: 700; fill: var(--mint-deep); }
-.day-banner .info { font-size: 14px; color: var(--text-soft); flex: 1; min-width: 0; }
+.day-banner .info { font-size: 14px; color: var(--text-soft); flex: 1 1 auto; min-width: 80px; }
 .day-banner .info b { color: var(--text); font-size: 16px; }
 .day-banner button { padding: 7px 10px; font-size: 13px; white-space: nowrap; }
 .day-banner .banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
@@ -388,7 +388,7 @@ button.ghost.warn { background: var(--warn); color: #fff; }
   .bf-tasks { margin: 10px 0; max-height: 52vh; overflow: auto; border: 1px solid var(--gray); border-radius: 12px; }
   .bf-task { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-bottom: 1px solid var(--gray); }
   .bf-task:last-child { border-bottom: none; }
-  .bf-title { flex: 1; font-size: 14px; }
+  .bf-title { flex: 1 1 auto; min-width: 0; font-size: 14px; }
   .bf-task .sub { font-size: 11px; padding: 1px 6px; border-radius: 8px; }
   .bf-stars { display: inline-flex; gap: 2px; }
   .bf-stars .star { cursor: pointer; color: #cfcfcf; font-size: 19px; line-height: 1; user-select: none; }
@@ -458,7 +458,7 @@ button.ghost.warn { background: var(--warn); color: #fff; }
   padding: 8px 10px; border-radius: 10px; background: var(--gray);
   border: 1px solid transparent; cursor: pointer; user-select: none;
 }
-.habit-item span { flex: 1; }
+.habit-item span { flex: 1 1 auto; min-width: 0; }
 .habit-item.on { background: var(--mint-soft); border-color: var(--mint); color: var(--mint-deep); font-weight: 600; }
 .habit-item.custom { background: #fff7e8; }
 .habit-del { color: var(--warn); font-weight: 700; padding: 0 4px; }
@@ -663,8 +663,9 @@ button.ghost.warn { background: var(--warn); color: #fff; }
   .task .row1 { gap: 8px; }
   header.topbar .title { font-size: 18px; }
   header .tools button { padding: 6px 8px; font-size: 13px; }
-  .day-banner { padding: 9px 10px; gap: 8px; }
-  .day-banner .info { font-size: 13px; }
+  .day-banner { padding: 9px 10px; gap: 8px; flex-wrap: wrap; }
+  .day-banner .info { flex: 1 1 auto; min-width: 120px; font-size: 13px; }
+  .banner-actions { width: 100%; justify-content: flex-start; margin-top: 8px; }
   .section-title { font-size: 16px; }
 }
 /* 离线同步面板 */
