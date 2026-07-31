@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#f7b8d0">
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-512.png">
   <title>火箭一飞冲天</title>
   <style>
 /* ===== 火箭一飞冲天 · 样式 ===== */
@@ -2027,6 +2029,7 @@ window.__CHARS_6B__ = [
       { cat: "数学", sub: "基础", title: "计算练习", type: "math" },
       { cat: "数学", sub: "拓展", title: "思维提升课 或 速算提升课（二选一）", type: "choice", id: "t_math_choice", options: ["思维提升课 1 节", "速算提升课 1 节"] },
       { cat: "英语", sub: "基础", title: "英语阅读：Raz 绘本 或 大玛泽动画（二选一）", type: "choice", id: "t_eng_choice", options: ["Raz 绘本阅读 3~5 本", "大玛泽动画精读 1 集"], desc: "每天二选一：Raz 分级绘本指读跟读，或大玛泽动画精听精读 1 集，原版材料真实可感，不依赖机器发音。" },
+      { id: "t_eng_preview", cat: "英语", sub: "拓展", title: "预习英语每日一课", type: "normal" },
       { id: "t_life", cat: "培养生活习惯", sub: "基础", title: "今日培养生活习惯", type: "chore" }
     ];
     return list.map(function (x, i) {
@@ -2073,7 +2076,7 @@ window.__CHARS_6B__ = [
     // 删除已移除的任务（旧版英语通用任务 / 历史残留任务）
     arr = arr.filter(function (t) {
       return t.title !== "新课预习" && t.title !== "Raz 绘本阅读 3~5 本" && t.title !== "大玛泽动画精读 1 集" &&
-        t.id !== "t_eng_flash" && t.id !== "t_eng_phonics" && t.id !== "t_eng_sentence" && t.id !== "t_eng_preview" &&
+        t.id !== "t_eng_flash" && t.id !== "t_eng_phonics" && t.id !== "t_eng_sentence" &&
         t.id !== "t_pu_vocab" && t.id !== "t_pu_sentence" && t.id !== "t_pu_story" &&
         t.title !== "预习三年级每日一课" && t.title !== "语熙三年级每日一课" && t.title !== "阅读理解 1~2 篇" && t.title !== "看图写话 1 篇";
     });
@@ -2097,6 +2100,12 @@ window.__CHARS_6B__ = [
       if (isDay) { ec.done = false; ec.score = null; ec.completedAt = null; ec.scoredToday = false; ec.chosen = null; }
       arr.push(ec);
     }
+    // 英语拓展：预习英语每日一课（t_eng_preview）已恢复显示
+    if (!arr.some(function (t) { return t.id === "t_eng_preview"; })) {
+      var ep = { id: "t_eng_preview", cat: "英语", sub: "拓展", title: "预习英语每日一课", type: "normal", enabled: true };
+      if (isDay) { ep.done = false; ep.score = null; ep.completedAt = null; ep.scoredToday = false; }
+      arr.push(ep);
+    }
     // 语文拓展：三选一（阅读理解 / 看图写话 / 小白鸥语文基础打卡）
     if (!arr.some(function (t) { return t.id === "t_cn_ext"; })) {
       var ce = { id: "t_cn_ext", cat: "语文", sub: "拓展", title: "语文拓展（三选一）", type: "choice", enabled: true,
@@ -2104,7 +2113,7 @@ window.__CHARS_6B__ = [
       if (isDay) { ce.done = false; ce.score = null; ce.completedAt = null; ce.scoredToday = false; ce.chosen = null; }
       arr.push(ce);
     }
-    // 英语拓展：预习英语每日一课（t_eng_preview）已按要求移除，不再生成
+    // 英语拓展：预习英语每日一课（t_eng_preview）已恢复（见上方恢复逻辑）
     // 保证培养生活习惯任务存在于每个模板与每日任务（修复旧库缺此任务→分类空白）
     if (!arr.some(function (t) { return t.id === "t_life"; })) {
       var lh = { id: "t_life", cat: "培养生活习惯", sub: "基础", title: "今日培养生活习惯", type: "chore", enabled: true };
