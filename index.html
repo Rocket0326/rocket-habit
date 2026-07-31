@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#8fd9c4">
+  <meta name="theme-color" content="#0f766e">
+  <link rel="manifest" href="manifest.webmanifest">
   <title>火箭一飞冲天</title>
   <style>
 /* ===== 火箭一飞冲天 · 样式 ===== */
@@ -17797,6 +17798,18 @@ function scanLoop(video, cb) {
 
 function stopScan() {
   if (__scanStream) { __scanStream.getTracks().forEach(function (t) { t.stop(); }); __scanStream = null; }
+}
+</script>
+<script>
+// PWA: register service worker (offline + instant load, auto-refresh on new version)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+  var __swRefreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (!__swRefreshing) { __swRefreshing = true; location.reload(); }
+  });
 }
 </script>
 </body>
