@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#0f766e">
+  <meta name="theme-color" content="#f7b8d0">
   <link rel="manifest" href="manifest.webmanifest">
   <title>火箭一飞冲天</title>
   <style>
@@ -18,6 +18,9 @@
   --text-soft: #697876;
   --warn: #e06342;
   --gold: #f0b000;
+  --pink: #f4a6c4;
+  --pink-deep: #e87aa3;
+  --pink-soft: #fdeef5;
   --radius: 18px;
   --radius-sm: 12px;
   --font: "HarmonyOS Sans SC", "HarmonyOS Sans", "Huawei Sans", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Droid Sans Fallback", sans-serif;
@@ -32,13 +35,16 @@
     --gray-deep: #2c3733;
     --text: #e7efed;
     --text-soft: #9fb0ad;
+    --pink: #d97aa0;
+    --pink-deep: #f4a6c4;
+    --pink-soft: #2a2329;
   }
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; height: 100%; }
 body {
   font-family: var(--font);
-  background: var(--gray);
+  background: linear-gradient(180deg, var(--mint-soft), var(--pink-soft));
   color: var(--text);
   font-size: 17px;
   line-height: 1.5;
@@ -59,6 +65,7 @@ button {
 }
 button:active { transform: scale(.96); }
 button.ghost { background: var(--gray-deep); color: var(--text); }
+button:not(.ghost):not(.warn):not(.exempt-btn):hover { background: var(--pink); }
 button.warn { background: var(--warn); }
 button:disabled { opacity: .5; cursor: not-allowed; }
 
@@ -67,10 +74,10 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 header.topbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: calc(12px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 12px calc(14px + env(safe-area-inset-left));
-  background: var(--mint-soft);
+  background: linear-gradient(100deg, var(--mint-soft), var(--pink-soft));
   position: sticky; top: 0; z-index: 5;
 }
-header .title { font-size: 20px; font-weight: 700; color: var(--mint-deep); white-space: nowrap; }
+header .title { font-size: 20px; font-weight: 700; color: var(--pink-deep); white-space: nowrap; }
 header .tools { display: flex; gap: 6px; flex-shrink: 0; }
 header .tools button { padding: 7px 10px; font-size: 14px; white-space: nowrap; }
 
@@ -106,7 +113,7 @@ main.panel { flex: 1; padding: 12px; overflow-y: auto; min-width: 0; }
   padding: 10px 12px; margin-bottom: 12px; display: flex; align-items: center; gap: 10px;
 }
 .ring { width: 54px; height: 54px; flex-shrink: 0; }
-.ring text { font-size: 13px; font-weight: 700; fill: var(--mint-deep); }
+.ring text { font-size: 13px; font-weight: 700; fill: var(--pink-deep); }
 .day-banner .info { font-size: 14px; color: var(--text-soft); flex: 1 1 auto; min-width: 80px; }
 .day-banner .info b { color: var(--text); font-size: 16px; }
 .day-banner button { padding: 7px 10px; font-size: 13px; white-space: nowrap; }
@@ -118,7 +125,7 @@ main.panel { flex: 1; padding: 12px; overflow-y: auto; min-width: 0; }
 .ledger-total.warn { color: #e0533d; font-weight: 700; }
 .ledger-note { font-size: 12px; color: var(--text-soft); margin-top: 6px; }
 
-.section-title { font-size: 17px; font-weight: 700; margin: 16px 4px 8px; color: var(--mint-deep); }
+.section-title { font-size: 17px; font-weight: 700; margin: 16px 4px 8px; color: var(--pink-deep); border-left: 4px solid var(--pink); padding-left: 8px; }
 
 /* 任务卡片 */
 .task {
@@ -133,7 +140,7 @@ main.panel { flex: 1; padding: 12px; overflow-y: auto; min-width: 0; }
   flex-shrink: 0; display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 15px; margin-top: 2px;
 }
-.chk.on { background: var(--mint); }
+.chk.on { background: var(--pink); }
 .task .name { flex: 1 1 60%; min-width: 0; font-size: 16px; font-weight: 600; line-height: 1.35; word-break: break-word; }
 .task .meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-top: 2px; }
 .task .sub { font-size: 12px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
@@ -2986,7 +2993,7 @@ window.__CHARS_6B__ = [
     var total = en.length || 1;
     var pct = Math.round(done / total * 100);
     var ring = '<svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--gray-deep)" stroke-width="4"/>' +
-      '<circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--mint)" stroke-width="4" stroke-dasharray="' + (pct / 100 * 100) + ' 100" stroke-dashoffset="25" stroke-linecap="round"/>' +
+      '<circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--pink)" stroke-width="4" stroke-dasharray="' + (pct / 100 * 100) + ' 100" stroke-dashoffset="25" stroke-linecap="round"/>' +
       '<text x="18" y="21" text-anchor="middle">' + done + '/' + en.length + '</text></svg>';
     var exemptBadge = day.exempt
       ? '<button class="tpl-btn exempt-badge" data-act="exempt-undo">🌟 今日免打卡 · 撤销</button>'
