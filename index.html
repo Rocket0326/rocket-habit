@@ -476,6 +476,11 @@ button.ghost.warn { background: var(--warn); color: #fff; }
 .habit-item span { flex: 1 1 auto; min-width: 0; }
 .habit-item.on { background: var(--mint-soft); border-color: var(--mint); color: var(--mint-deep); font-weight: 600; }
 .habit-item.custom { background: #fff7e8; }
+/* 不计星分组（个人基本习惯）：视觉上灰蓝、明显区别于“得星”的薄荷绿 */
+.habit-grp.no-star .habit-grp-title { color: #8a93a0; }
+.grp-badge { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #8a6d3b; background: #f3e9d2; border: 1px solid #e3d3ad; vertical-align: middle; }
+.habit-item.nss { background: repeating-linear-gradient(45deg,#fafafa,#fafafa 8px,#f3f4f5 8px,#f3f4f5 16px); }
+.habit-item.nss.on { background: #eef1f4; border-color: #c9d2db; color: #6b7682; font-weight: 600; }
 .habit-del { color: var(--warn); font-weight: 700; padding: 0 4px; }
 .habit-add { display: flex; gap: 8px; margin-top: 8px; }
 .habit-add input { flex: 1; padding: 9px 10px; border: 1px solid var(--gray-deep); border-radius: 10px; font-size: 15px; }
@@ -2046,10 +2051,11 @@ window.__CHARS_6B__ = [
       { cat: "数学", sub: "拓展", title: "思维提升课 或 速算提升课（二选一）", type: "choice", id: "t_math_choice", options: ["思维提升课 1 节", "速算提升课 1 节"] },
       { cat: "英语", sub: "基础", title: "英语阅读：Raz 绘本 或 大玛泽动画（二选一）", type: "choice", id: "t_eng_choice", options: ["Raz 绘本阅读 3~5 本", "大玛泽动画精读 1 集"], desc: "每天二选一：Raz 分级绘本指读跟读，或大玛泽动画精听精读 1 集，原版材料真实可感，不依赖机器发音。" },
       { id: "t_eng_preview", cat: "英语", sub: "拓展", title: "预习英语每日一课", type: "normal" },
-      { id: "t_life", cat: "培养生活习惯", sub: "基础", title: "今日培养生活习惯", type: "chore" }
+      { id: "t_life", cat: "培养生活习惯", sub: "基础", title: "今日培养生活习惯", type: "chore" },
+      { id: "t_sport", cat: "运动项目打卡", sub: "基础", title: "今日运动项目打卡", type: "chore", habitList: SPORTS_HABITS }
     ];
     return list.map(function (x, i) {
-      return { id: x.id || ("t" + i), cat: x.cat, sub: x.sub, title: x.title, type: x.type, options: x.options, desc: x.desc, enabled: true };
+      return { id: x.id || ("t" + i), cat: x.cat, sub: x.sub, title: x.title, type: x.type, options: x.options, desc: x.desc, habitList: x.habitList, enabled: true };
     });
   }
 
@@ -2113,7 +2119,7 @@ window.__CHARS_6B__ = [
     // 删除已移除的任务（依据 DEPRECATED_TASKS 单一清单）
     arr = arr.filter(function (t) { return !isDeprecated(t); });
     // 统一培养生活习惯任务为固定 id（避免旧数据重复/缺失导致「点进去没内容」）
-    arr = arr.filter(function (t) { return !(t.type === "chore" && t.id !== "t_life"); });
+    arr = arr.filter(function (t) { return !(t.type === "chore" && t.id !== "t_life" && t.id !== "t_sport"); });
     // 计算练习：调整为数学基础
     arr.forEach(function (t) { if (t.title === "计算练习") { t.sub = "基础"; t.type = "math"; } });
     // 语文核心：二上生字跟读跟练 → 生字跟练（统一命名，兼容旧数据）
@@ -2151,6 +2157,12 @@ window.__CHARS_6B__ = [
       var lh = { id: "t_life", cat: "培养生活习惯", sub: "基础", title: "今日培养生活习惯", type: "chore", enabled: true };
       if (isDay) { lh.done = false; lh.score = null; lh.completedAt = null; lh.scoredToday = false; lh.habitDone = {}; }
       arr.push(lh);
+    }
+    // 运动项目打卡：新增分类，复用 chore 勾选机制，清单来自 SPORTS_HABITS
+    if (!arr.some(function (t) { return t.id === "t_sport"; })) {
+      var sp = { id: "t_sport", cat: "运动项目打卡", sub: "基础", title: "今日运动项目打卡", type: "chore", enabled: true, habitList: SPORTS_HABITS };
+      if (isDay) { sp.done = false; sp.score = null; sp.completedAt = null; sp.scoredToday = false; sp.habitDone = {}; }
+      arr.push(sp);
     }
     // 选择类（拓展）任务：每个子任务独立打卡、按天记录、可取消重做、单独评分
     if (isDay) {
@@ -2422,6 +2434,7 @@ window.__CHARS_6B__ = [
       if (t.type === "poem") o.poemId = pickPoem();
       if (t.type === "chinese-char") assignCharRef(o, nextCharLesson());
       if (t.type === "chore") { o.habitDone = {}; }
+      if (t.habitList) o.habitList = t.habitList;
       if (t.options) o.options = t.options.slice();
       if (t.desc) o.desc = t.desc;
       return o;
@@ -2447,10 +2460,15 @@ window.__CHARS_6B__ = [
     ensureToday().tasks = buildDayTasks(tpl);
     saveDB();
   }
-  // 培养生活习惯：日常自理 + 力所能及家务（固定清单，不随机，适合 7 岁男生）
+  // 培养生活习惯：个人基本习惯（本就该做，展示但不计星）+ 力所能及家务（每项 +1⭐）
   var LIFE_HABITS = [
-    { g: "生活习惯（自己的事自己做）", items: ["自己穿衣、叠被子", "早晚刷牙、洗脸", "饭前便后洗手", "自己洗漱、洗澡", "按时起床不赖床", "整理书包、玩具归位"] },
-    { g: "帮家里做家务（力所能及）", items: ["饭前摆碗筷、饭后收碗筷", "擦桌子、收拾餐桌", "给阳台绿植浇水", "帮家人拿拖鞋、递东西", "倒小袋垃圾", "整理自己的小书架 / 衣柜"] }
+    { g: "生活习惯（自己的事 · 本就该做）", noStar: true, items: ["自己穿衣、叠被子", "早晚刷牙、洗脸", "饭前便后洗手", "自己洗漱、洗澡", "按时起床不赖床", "整理书包、玩具归位"] },
+    { g: "帮家里做家务（力所能及 · 每项 +1⭐）", items: ["饭前摆碗筷、饭后收碗筷", "擦桌子、收拾餐桌", "给阳台绿植浇水", "帮家人拿拖鞋、递东西", "倒小袋垃圾", "整理自己的小书架 / 衣柜"] }
+  ];
+  // 运动项目打卡（适合二年级小朋友，每项完成 +1⭐）
+  var SPORTS_HABITS = [
+    { g: "户外运动（每项 +1⭐）", items: ["跳绳 100 下", "踢球 15 分钟", "拍皮球 50 下", "慢跑 / 快走 10 分钟", "骑车 15 分钟"] },
+    { g: "室内 / 趣味运动（每项 +1⭐）", items: ["开合跳 20 个", "坐位体前屈拉伸", "仰卧起坐 20 个", "和家人一起做体操", "羽毛球对打 10 分钟"] }
   ];
 
   // ---------- 时间判定 ----------
@@ -2679,7 +2697,16 @@ window.__CHARS_6B__ = [
     }
     if (t.type === "chore") {            // 培养生活习惯：每项勾选 = 1 颗星（可多选，任意一项都得星）
       var hd = t.habitDone || {};
-      return Object.keys(hd).filter(function (k) { return hd[k]; }).length;
+      var list = t.habitList || LIFE_HABITS;
+      var noStarKeys = {};
+      if (list) {
+        list.forEach(function (g) {
+          if (!g.noStar) return; // 仅把“不计星”分组的项收集起来
+          (g.items || []).forEach(function (it) { noStarKeys[it] = true; });
+        });
+      }
+      // 排除 noStar 分组（个人基本习惯），其余勾选项（含自定义项目）每项 +1⭐
+      return Object.keys(hd).filter(function (k) { return hd[k] && !noStarKeys[k]; }).length;
     }
     if (t.done && t.score != null) {
       var mult = (t.sub === "拓展" && !t.freePass) ? 1.2 : 1; // 免打卡的基础星不乘 1.2
@@ -2978,7 +3005,8 @@ window.__CHARS_6B__ = [
       { c: "语文", ic: "📖" },
       { c: "数学", ic: "🔢" },
       { c: "英语", ic: "🔤" },
-      { c: "培养生活习惯", ic: "🌱" }
+      { c: "培养生活习惯", ic: "🌱" },
+      { c: "运动项目打卡", ic: "🏃" }
     ];
     var html = cats.map(function (o) {
       var cnt = todayTasks().filter(function (t) { return t.cat === o.c && t.enabled; }).length;
@@ -3121,7 +3149,7 @@ window.__CHARS_6B__ = [
     if (t.score != null) {
       var earlyNote = t.earlyBonus ? ' <span class="hint" style="color:var(--mint)">（含早打卡 +1⭐）</span>' : '';
       html += '<div class="stars">' + starHTML(t.score) + '<span class="hint">已评 ' + t.score + ' 星' + (t.sub === "拓展" && !t.freePass ? ' → ' + (t.score * 1.2) + ' 星' : '') + (t.freePass ? ' · 🌟免打卡' : '') + '</span>' + earlyNote + ' <button class="ghost undo-score" data-act="undo-score" data-id="' + t.id + '">↩ 撤销</button></div>';
-    } else if (t.done && t.type !== "choice") {
+    } else if (t.done && t.type !== "choice" && t.type !== "chore") {
       html += '<div class="stars ' + (locked ? "locked" : "") + '" data-rate="' + t.id + '">' + starRow(t.id, locked) + '</div>';
     }
 
@@ -3138,25 +3166,36 @@ window.__CHARS_6B__ = [
     }
     if (t.type === "chore") {
       var hd = t.habitDone || {};
-      var fixedHtml = LIFE_HABITS.map(function (grp) {
+      var habitList = t.habitList || LIFE_HABITS;
+      var fixedHtml = habitList.map(function (grp) {
+        var grpCls = grp.noStar ? "habit-grp no-star" : "habit-grp";
+        var badge = grp.noStar ? ' <span class="grp-badge">不计星</span>' : '';
         var items = grp.items.map(function (it) {
           var on = hd[it] ? " on" : "";
           var mark = hd[it] ? "✓" : "";
-          return '<li class="habit-item' + on + '" data-act="habit-check" data-id="' + t.id + '" data-name="' + encodeURIComponent(it) + '">' + mark + '<span>' + esc(it) + '</span></li>';
+          return '<li class="habit-item' + on + (grp.noStar ? " nss" : "") + '" data-act="habit-check" data-id="' + t.id + '" data-name="' + encodeURIComponent(it) + '">' + mark + '<span>' + esc(it) + '</span></li>';
         }).join("");
-        return '<div class="habit-grp"><div class="habit-grp-title">' + esc(grp.g) + '</div><ul class="habit-list">' + items + '</ul></div>';
+        return '<div class="' + grpCls + '"><div class="habit-grp-title">' + esc(grp.g) + badge + '</div><ul class="habit-list">' + items + '</ul></div>';
       }).join("");
-      var customs = (DB.customHabits || []).map(function (it, i) {
-        var on = hd[it] ? " on" : "";
-        var mark = hd[it] ? "✓" : "";
-        return '<li class="habit-item custom' + on + '"><span class="habit-label" data-act="habit-check" data-id="' + t.id + '" data-name="' + encodeURIComponent(it) + '">' + mark + esc(it) + '</span><span class="habit-del" data-act="habit-custom-del" data-idx="' + i + '">✕</span></li>';
-      }).join("");
-      var customSection = '<div class="habit-grp"><div class="habit-grp-title">⭐ 我的自定义项目</div>' +
-        (customs ? '<ul class="habit-list">' + customs + '</ul>' : '<div class="note">还没有自定义项目，下面添加一条吧～</div>') +
-        '<div class="habit-add"><input type="text" id="habitInput" placeholder="如：自己整理床铺、帮拿快递" maxlength="20"><button data-act="habit-custom-add" data-id="' + t.id + '">＋ 添加</button></div></div>';
-      var hdCount = Object.keys(hd).filter(function (k) { return hd[k]; }).length;
-      var progress = '<div class="learned-ok">✅ 已做 ' + hdCount + ' 项 · 得 ' + hdCount + ' 颗星（每项完成得 1 颗星，可多选）</div>';
-      html += '<div class="special habit-box">📋 今日培养生活习惯（逐项勾选，每项完成得 1 颗星）<div class="habit-wrap">' + fixedHtml + customSection + '</div>' + progress + '</div>';
+      var customSection = "";
+      if (t.id === "t_life") {
+        var customs = (DB.customHabits || []).map(function (it, i) {
+          var on = hd[it] ? " on" : "";
+          var mark = hd[it] ? "✓" : "";
+          return '<li class="habit-item custom' + on + '"><span class="habit-label" data-act="habit-check" data-id="' + t.id + '" data-name="' + encodeURIComponent(it) + '">' + mark + esc(it) + '</span><span class="habit-del" data-act="habit-custom-del" data-idx="' + i + '">✕</span></li>';
+        }).join("");
+        customSection = '<div class="habit-grp"><div class="habit-grp-title">⭐ 我的自定义项目</div>' +
+          (customs ? '<ul class="habit-list">' + customs + '</ul>' : '<div class="note">还没有自定义项目，下面添加一条吧～</div>') +
+          '<div class="habit-add"><input type="text" id="habitInput" placeholder="如：自己整理床铺、帮拿快递" maxlength="20"><button data-act="habit-custom-add" data-id="' + t.id + '">＋ 添加</button></div></div>';
+      }
+      var starCount = taskRawStars(t);
+      var noStarCount = 0;
+      (habitList || []).forEach(function (g) { if (g.noStar) { (g.items || []).forEach(function (it) { if (hd[it]) noStarCount++; }); } });
+      var progTxt = '✅ 完成 ' + (starCount + noStarCount) + ' 项';
+      if (noStarCount > 0) progTxt += '（个人习惯 ' + noStarCount + ' 项本就该做 · 不计星）';
+      progTxt += ' · 得 ⭐ ' + starCount + '（家务每项 +1⭐，可多选）';
+      var progress = '<div class="learned-ok">' + progTxt + '</div>';
+      html += '<div class="special habit-box">📋 ' + esc(t.title) + '（逐项勾选，每项完成得 1 颗星）<div class="habit-wrap">' + fixedHtml + customSection + '</div>' + progress + '</div>';
     }
 
     html += '</div>';
@@ -3893,11 +3932,16 @@ window.__CHARS_6B__ = [
       { title: "今日培养生活习惯", type: "chore", sub: "基础" },
       { title: "自己整理书包/书桌", type: "normal", sub: "基础" },
       { title: "帮忙做一件家务", type: "normal", sub: "基础" }
+    ],
+    "运动项目打卡": [
+      { title: "今日运动项目打卡", type: "chore", sub: "基础" },
+      { title: "户外跳绳 / 拍球", type: "normal", sub: "基础" },
+      { title: "亲子体育运动", type: "normal", sub: "基础" }
     ]
   };
   function openTaskEditor(task) {
     var isEdit = !!task;
-    var cats = ["语文", "数学", "英语", "培养生活习惯"];
+    var cats = ["语文", "数学", "英语", "培养生活习惯", "运动项目打卡"];
     var typeOpts = [["normal", "普通"], ["chinese-char", "生字跟读(全册)"], ["poem", "古诗背诵"], ["reading", "每日阅读"], ["math", "数学计算"], ["chore", "培养生活习惯"], ["choice", "二选一(选项)"]];
     var subOpts = ["基础", "拓展"];
     var presetOpts = Object.keys(TASK_PRESETS).map(function (cat) {
