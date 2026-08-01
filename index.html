@@ -82,6 +82,15 @@ header.topbar {
 header .title { font-size: 20px; font-weight: 700; color: var(--pink-deep); white-space: nowrap; }
 header .tools { display: flex; gap: 6px; flex-shrink: 0; }
 header .tools button { padding: 7px 10px; font-size: 14px; white-space: nowrap; }
+.sync-badge {
+  margin-left: auto; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 20px;
+  cursor: pointer; white-space: nowrap; user-select: none; flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08); transition: transform .1s;
+}
+.sync-badge:active { transform: scale(.96); }
+.sync-badge.off { background: #fff3cd; color: #8a6d00; }
+.sync-badge.ok { background: #e6f9ed; color: #1a7f43; }
+.sync-badge.err { background: #fde8e8; color: #c0392b; }
 
 .layout { display: flex; flex: 1; }
 /* 左侧导航 */
@@ -256,6 +265,7 @@ button.ghost.warn { background: var(--warn); color: #fff; }
 .asset-row.link { cursor: pointer; border-radius: 8px; }
 .asset-row.link:hover { background: rgba(255,255,255,.10); }
 .asset-row.hl .val { font-size: 21px; color: #ffe08a; }
+.asset-note { font-size: 12px; line-height: 1.5; color: #fff; background: rgba(0,0,0,.16); border-radius: 10px; padding: 8px 11px; margin-bottom: 10px; }
 .settle-detail { font-size: 13px; opacity: .85; margin-top: 8px; white-space: pre-wrap; line-height: 1.65; }
 .cash-card { margin-top: 10px; padding: 12px; border: 1.5px dashed rgba(255,255,255,.45); border-radius: 14px; background: rgba(255,255,255,.10); }
 .cash-status { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 8px; }
@@ -730,6 +740,7 @@ nav .cat, nav .tpl-btn { min-height: 46px; }
     <header class="topbar">
       <button class="ghost menu-btn" id="navToggle" aria-label="收起或展开侧栏">☰</button>
       <div class="title">🚀 火箭一飞冲天</div>
+      <div class="sync-badge off" id="syncBadge" title="尚未配置云端同步">☁️ 未同步</div>
       <div class="tools">
         <button class="ghost" id="btnWish">🎁 心愿</button>
         <button class="ghost" id="btnAssets">💰 资产</button>
@@ -2315,12 +2326,45 @@ window.__CHARS_6B__ = [
     saveDB();
   }
   var syncReady = false;
+  var syncState = { lastSync: null, lastError: null };
+  function fmtHHMM(ts) {
+    var d = new Date(ts);
+    var h = d.getHours(), m = d.getMinutes();
+    return (h < 10 ? "0" + h : h) + ":" + (m < 10 ? "0" + m : m);
+  }
+  function updateSyncBadge() {
+    var el = document.getElementById("syncBadge");
+    if (!el) return;
+    if (!getSyncCfg()) {
+      el.className = "sync-badge off";
+      el.innerHTML = "☁️ 未同步";
+      el.title = "尚未配置云端同步：清空浏览器/换设备会丢失数据！点此一键设置";
+    } else if (syncState.lastError) {
+      el.className = "sync-badge err";
+      el.innerHTML = "☁️ 同步失败";
+      el.title = "云端同步出错：" + syncState.lastError;
+    } else if (syncState.lastSync) {
+      el.className = "sync-badge ok";
+      el.innerHTML = "☁️ 已同步 " + fmtHHMM(syncState.lastSync);
+      el.title = "云端同步已开启，数据已备份到你的私有仓库";
+    } else {
+      el.className = "sync-badge ok";
+      el.innerHTML = "☁️ 云端已开启";
+      el.title = "云端同步已开启";
+    }
+  }
   function saveDBLocal() {
     try { localStorage.setItem(DB_KEY, JSON.stringify(DB)); } catch (e) { toast("保存失败：" + e.message); }
   }
   function saveDB() {
     saveDBLocal();
-    if (syncReady) { var p = cloudPush(); if (p && p.catch) p.catch(function (e) { console.warn("云端同步失败：", e); }); }
+    if (syncReady) {
+      var p = cloudPush();
+      if (p && p.then) {
+        p.then(function () { syncState.lastSync = Date.now(); syncState.lastError = null; updateSyncBadge(); })
+         .catch(function (e) { syncState.lastError = e.message; updateSyncBadge(); });
+      }
+    }
   }
 
   // ---------- 云端同步（GitHub 私有仓库作为数据库，跨设备互通） ----------
@@ -2943,7 +2987,7 @@ window.__CHARS_6B__ = [
   function cashStatus() {
     if (!isSunday()) return { ok: false, msg: "现金兑换仅限每周日（零花钱日），下次 " + nextSundayText() };
     if (getWeekKey(dateKey()) === DB.assets.lastCashWeek) return { ok: false, msg: "本周已兑换，下周日（" + nextSundayText() + "）可再兑" };
-    return { ok: true, msg: "今天是零花钱日，可把剩余花朵换成现金" };
+    return { ok: true, msg: "今天是零花钱日，可把剩余 ⭐星星换成现金" };
   }
   function exchangeCash(amount) {
     amount = Math.floor(amount);
@@ -3632,7 +3676,7 @@ window.__CHARS_6B__ = [
     }).join("") || '<div class="note">还没有心愿，家长可添加。</div>';
     var locked = !(minutesNow() >= settleMin());
     $("#wish").innerHTML = '<h3>🚀 火箭心愿兑换区' + (locked ? '（结算后解锁）' : '') + '</h3>' + list +
-      '<div class="wish-input"><input type="text" id="wishName" placeholder="心愿名称"><input type="number" id="wishCost" placeholder="花朵数" style="width:90px"><button data-act="wish-add">添加</button></div>';
+      '<div class="wish-input"><input type="text" id="wishName" placeholder="心愿名称"><input type="number" id="wishCost" placeholder="星星数" style="width:90px"><button data-act="wish-add">添加</button></div>';
   }
 
   function renderAssets() {
@@ -3661,7 +3705,7 @@ window.__CHARS_6B__ = [
       '<div class="cash-status ' + (st.ok ? "ok" : "") + '">💵 ' + st.msg + '</div>' +
       '<div class="cash-row"><input type="number" id="cashAmt" min="1" max="' + a.availableFlowers + '" placeholder="金额(≤' + a.availableFlowers + ')"> 元' +
       '<button data-act="cash-do">兑换（家长）</button></div>' +
-      '<div class="cash-extra">现金需周日家长手动兑换（1 朵花 = ¥1）' +
+      '<div class="cash-extra">现金需周日家长手动兑换（1 ⭐星星 = ¥1）' +
       '<span class="sep">·</span>⭐ 是通用货币，不会自动变现金</div>' +
       '<div class="cash-rec"><div class="rec-title">📋 兑换记录（剩余待付）<span style="font-size:11px;opacity:.7;font-weight:400;margin-left:6px">奖励现金同样需家长支付</span></div>' + cashExchangeRecordsHTML() + '</div>' +
       '</div>';
@@ -3676,12 +3720,12 @@ window.__CHARS_6B__ = [
     }
     var penaltyStars = DB.penalties.reduce(function (s, p) { return s + (p.stars || 0); }, 0);
     var starsRows = [
-      { lbl: "当前可用星星", val: a.availableFlowers, u: "⭐", hl: true },
-      { lbl: "今日已得（实时）", val: liveTodayRawStars(), u: "⭐" },
-      { lbl: "今日结算新增", val: todayFlowers(), u: "⭐" },
-      { lbl: "累计已获得", val: a.totalFlowersEarned, u: "⭐" },
-      { lbl: "储蓄罐零散", val: a.savingsStars, u: "⭐" },
-      { lbl: "考试满分奖励", val: examStarsTotal(), u: "⭐" },
+      { lbl: "可用 ⭐星星", val: a.availableFlowers, u: "⭐", hl: true },
+      { lbl: "今日任务得星", val: liveTodayRawStars(), u: "⭐" },
+      { lbl: "今日结算新增 ⭐星星", val: todayFlowers(), u: "⭐" },
+      { lbl: "累计获得 ⭐星星", val: a.totalFlowersEarned, u: "⭐" },
+      { lbl: "储蓄罐零散星", val: a.savingsStars, u: "⭐" },
+      { lbl: "考试满分奖励星", val: examStarsTotal(), u: "⭐" },
       { lbl: "累计被扣", val: penaltyStars, u: "⭐" }
     ];
     var gardenRows = [
@@ -3702,7 +3746,8 @@ window.__CHARS_6B__ = [
       { lbl: "补打卡", val: "补记过去", act: "backfill" }
     ];
     $("#assets").innerHTML = '<h3>💰 资产面板</h3>' +
-      assetGrp("⭐ 星星", starsRows) +
+      assetGrp("⭐ 星星（能花的钱）", starsRows) +
+      '<div class="asset-note">💡 完成一项打卡得 ⭐（小星星）；每攒够 20 颗 ⭐ 会自动合成 1 颗 ⭐星星。⭐星星就是能花的"钱"，用来换心愿、养小狗。🌸花园里收集的是另一种花，不花钱。</div>' +
       assetGrp("🌸 花园", gardenRows) +
       assetGrp("🐶 伙伴", friendRows) +
       assetGrp("💵 现金", cashRows) +
@@ -3808,7 +3853,7 @@ window.__CHARS_6B__ = [
     var card = info.next
       ? '<div class="milestone-card">当前：<b>' + info.prev.name + '</b> · 下一站 <b>' + info.next.name + '</b>（还需 ' + (info.next.f - info.earn) + ' ⭐星星）<br>' + info.next.info + '</div>'
       : '<div class="milestone-card">🚀 已抵达 <b>' + info.prev.name + '</b>！' + info.prev.info + '</div>';
-    $("#rocket").innerHTML = '<h3>🚀 火箭升空之旅（累计花朵 = 飞行高度）</h3>' +
+    $("#rocket").innerHTML = '<h3>🚀 火箭升空之旅（累计 ⭐星星 = 飞行高度）</h3>' +
       '<div class="rocket-track"><div class="rocket-fill" style="width:' + pct + '%"></div></div>' +
       '<div class="milestones">' + ms + '</div>' + card;
   }
@@ -4892,8 +4937,9 @@ window.__CHARS_6B__ = [
 
   function openCloudSync() {
     var cfg = getSyncCfg() || { repo: "", token: "" };
-    var html = '<div class="note">将数据同步到你的 GitHub 私有仓库（data.json）。手机和电脑输入<b>同一份仓库与令牌</b>即可互通。令牌只存在本机浏览器，不会上传。</div>';
-    html += '<label>仓库（格式：用户名/仓库名）</label><input id="csRepo" value="' + esc(cfg.repo) + '" placeholder="如 myname/rocket-habit">';
+    var html = '<div class="note">将数据同步到你的 GitHub <b>私有</b>仓库的 data.json（建议<b>单独建一个空私有仓库</b>，不要和网站源码仓库混用，避免数据被公开）。手机/电脑输入<b>同一份仓库与令牌</b>即可互通。</div>';
+    html += '<div class="note">📋 三步开启：① 新建一个<b>私有</b>仓库；② 在 GitHub 生成 PAT（勾 <b>repo</b> 权限）；③ 把仓库名和令牌填下面保存。令牌只存在本机浏览器，<b>不会上传</b>。</div>';
+    html += '<label>仓库（格式：用户名/仓库名）</label><input id="csRepo" value="' + esc(cfg.repo) + '" placeholder="如 myname/rocket-sync">';
     html += '<label>访问令牌 Token</label><input id="csToken" type="password" value="' + esc(cfg.token) + '" placeholder="github_pat_...">';
     html += '<div class="actions"><button class="primary" data-x="csSave">保存并测试连接</button><button data-x="csUp">⬆ 立即上传到云端</button><button data-x="csDown">⬇ 从云端下载</button><button class="ghost" data-x="csClose">关闭</button></div>';
     html += '<div id="csStatus" class="sync-status"></div>';
@@ -4906,8 +4952,8 @@ window.__CHARS_6B__ = [
       setStatus("正在测试连接…");
       cloudTest().then(function (m) {
         setStatus(m + "，正在从云端拉取…");
-        cloudPull().then(function (ok) { setStatus(m + (ok ? "，已拉取云端最新数据 ✅" : "（云端暂无数据，之后改动会自动上传）")); }).catch(function (e) { setStatus("拉取失败：" + e.message, true); });
-      }).catch(function (e) { setStatus("连接失败：" + e.message + "（检查仓库名、令牌权限是否为 Contents: Read and write）", true); });
+        cloudPull().then(function (ok) { syncState.lastSync = Date.now(); syncState.lastError = null; updateSyncBadge(); setStatus(m + (ok ? "，已拉取云端最新数据 ✅" : "（云端暂无数据，之后改动会自动上传）")); }).catch(function (e) { syncState.lastError = e.message; updateSyncBadge(); setStatus("拉取失败：" + e.message, true); });
+      }).catch(function (e) { syncState.lastError = e.message; updateSyncBadge(); setStatus("连接失败：" + e.message + "（检查仓库名、令牌权限是否为 Contents: Read and write）", true); });
     };
     $("#modal [data-x=csUp]").onclick = function () {
       if (!getSyncCfg()) { setStatus("请先保存配置", true); return; }
@@ -5417,8 +5463,11 @@ window.__CHARS_6B__ = [
   // ---------- 启动 ----------
   function init() {
     loadDB(); autoBackupOnOpen(); checkTimeRollback(); bindGlobal(); render();
+    updateSyncBadge();
     if (getSyncCfg()) {
-      cloudPull().then(function () { syncReady = true; }).catch(function (e) { syncReady = true; toast("云端同步失败：" + e.message); });
+      cloudPull()
+        .then(function (ok) { syncReady = true; if (ok) { syncState.lastSync = Date.now(); } updateSyncBadge(); })
+        .catch(function (e) { syncReady = true; syncState.lastError = e.message; updateSyncBadge(); });
     } else {
       syncReady = true;
     }
@@ -5434,6 +5483,8 @@ window.__CHARS_6B__ = [
     document.getElementById("btnAssets").onclick = function () { document.getElementById("assets").scrollIntoView({ behavior: "smooth" }); };
     var navToggle = document.getElementById("navToggle");
     if (navToggle) navToggle.onclick = function () { document.querySelector(".layout").classList.toggle("nav-collapsed"); };
+    var syncBadge = document.getElementById("syncBadge");
+    if (syncBadge) syncBadge.onclick = function () { if (typeof openCloudSync === "function") openCloudSync(); };
     document.getElementById("modalClose").onclick = function () { document.getElementById("overlay").classList.remove("show"); };
   </script>
 
