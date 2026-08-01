@@ -332,12 +332,17 @@ button.ghost.warn { background: var(--warn); color: #fff; }
 .calendar .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
 .cal-grid .cal-h { font-size: 12px; text-align: center; color: var(--text-soft); padding-bottom: 2px; }
 .cal-grid .cal-d { aspect-ratio: 1; border-radius: 10px; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px; position: relative; }
-@media (prefers-color-scheme: dark){ .cal-grid .cal-d { background: var(--gray-deep); } }
+@media (prefers-color-scheme: dark){ .cal-grid .cal-d { background: var(--gray-deep); } .cal-grid .cal-d.part { background: #4a3d18; } }
 .cal-grid .cal-d.base { background: var(--mint); color: #fff; font-weight: 700; }
 .cal-grid .cal-d.ext { box-shadow: inset 0 0 0 3px var(--gold); }
 .cal-grid .cal-d.both { background: var(--mint); color: #fff; font-weight: 700; box-shadow: inset 0 0 0 3px var(--gold); }
 .cal-grid .cal-d.today { outline: 2.5px solid var(--mint-deep); outline-offset: 1px; }
 .cal-grid .cal-d .check { position: absolute; top: 2px; right: 4px; font-size: 11px; line-height: 1; }
+/* 生活习惯 / 运动打卡标记（单独颜色，不影响学业连续打卡） */
+.cal-grid .cal-d.part { background: #fff3d6; color: var(--text); }
+.cal-grid .cal-d .cal-badge { position: absolute; bottom: 1px; font-size: 10px; line-height: 1; }
+.cal-grid .cal-d .cal-badge.life { left: 3px; }
+.cal-grid .cal-d .cal-badge.sport { right: 3px; bottom: 1px; }
 .cal-legend { display: flex; gap: 12px; justify-content: center; margin-top: 8px; font-size: 12px; color: var(--text-soft); flex-wrap: wrap; }
 .cal-legend span { display: flex; align-items: center; gap: 4px; }
 .cal-legend i { width: 13px; height: 13px; border-radius: 4px; display: inline-block; }
@@ -483,6 +488,11 @@ button.ghost.warn { background: var(--warn); color: #fff; }
 .habit-item.nss.on { background: #eef1f4; border-color: #c9d2db; color: #6b7682; font-weight: 600; }
 .habit-del { color: var(--warn); font-weight: 700; padding: 0 4px; }
 .habit-add { display: flex; gap: 8px; margin-top: 8px; }
+/* 运动打卡：数量录入（如跳绳多少下） */
+.habit-item .habit-qty { width: 66px; font-size: 13px; padding: 4px 6px; margin-left: 6px; border-radius: 8px; border: 1.5px solid var(--gray-deep); background: #fff; color: var(--text); flex: 0 0 auto; }
+.habit-item.on .habit-qty { background: #fff; }
+.grp-note { font-size: 12.5px; color: #8a93a0; margin-top: 6px; line-height: 1.5; padding: 6px 8px; background: #f4f6f8; border-radius: 8px; border-left: 3px solid #c9d2db; }
+@media (prefers-color-scheme: dark){ .habit-item .habit-qty { background: var(--gray-deep); } .grp-note { background:#2a3330; color:#9fb0ad; border-left-color:#6b7682; } }
 .habit-add input { flex: 1; padding: 9px 10px; border: 1px solid var(--gray-deep); border-radius: 10px; font-size: 15px; }
 .primary-btn {
   margin-top: 12px; width: 100%; padding: 13px; font-size: 17px; font-weight: 700;
@@ -2436,7 +2446,7 @@ window.__CHARS_6B__ = [
         done: false, score: null, completedAt: null, scoredToday: false };
       if (t.type === "poem") o.poemId = pickPoem();
       if (t.type === "chinese-char") assignCharRef(o, nextCharLesson());
-      if (t.type === "chore") { o.habitDone = {}; }
+      if (t.type === "chore") { o.habitDone = {}; if (!o.habitQty) o.habitQty = {}; }
       if (t.habitList) o.habitList = t.habitList;
       if (t.options) o.options = t.options.slice();
       if (t.desc) o.desc = t.desc;
@@ -2800,7 +2810,7 @@ window.__CHARS_6B__ = [
   // ---------- 日历与连续打卡奖励 ----------
   function dayStatus(k) {
     var day = DB.history[k];
-    if (!day) return { base: false, ext: false };
+    if (!day) return { base: false, ext: false, life: false, sport: false };
     var en = day.tasks.filter(function (t) { return t.enabled; });
     var baseTasks = en.filter(function (t) { return t.sub === "基础"; });
     var extTasks = en.filter(function (t) { return t.sub === "拓展"; });
@@ -2810,7 +2820,12 @@ window.__CHARS_6B__ = [
     var extDone = extTasks.length > 0 && cats.every(function (cat) {
       return extTasks.some(function (t) { return t.cat === cat && t.done; });
     });
-    return { base: baseDone, ext: extDone };
+    // 生活习惯 / 运动打卡：至少完成 1 项即记为完成（仅用于日历标记，不影响学业连续打卡）
+    var lifeT = en.filter(function (t) { return t.id === "t_life"; })[0];
+    var sportT = en.filter(function (t) { return t.id === "t_sport"; })[0];
+    var lifeDone = !!(lifeT && lifeT.done);
+    var sportDone = !!(sportT && sportT.done);
+    return { base: baseDone, ext: extDone, life: lifeDone, sport: sportDone };
   }
   function consecutiveDays(predicate, endK) {
     var cnt = 0;
@@ -3060,14 +3075,17 @@ window.__CHARS_6B__ = [
       var code = st.base && st.ext ? 3 : (st.base ? 1 : (st.ext ? 2 : 0));
       daySig += code;
       var cls = code === 3 ? "both" : (code === 1 ? "base" : (code === 2 ? "ext" : ""));
+      if (!st.base && !st.ext && (st.life || st.sport)) cls += " part";
       if (k === todayK) cls += " today";
       var mark = code ? '<span class="check">✓</span>' : "";
-      cells += '<div class="cal-d ' + cls + '">' + d.getDate() + mark + '</div>';
+      var lsMark = st.life ? '<span class="cal-badge life" title="生活习惯已打卡">🌱</span>' : "";
+      var spMark = st.sport ? '<span class="cal-badge sport" title="运动已打卡">🏃</span>' : "";
+      cells += '<div class="cal-d ' + cls + '">' + d.getDate() + mark + lsMark + spMark + '</div>';
     }
     var sig = m + "|" + calendarCollapsed + "|" + daySig;
     if (sig === _calCache.sig) return _calCache.html;
     var gridHTML = '<div class="cal-grid">' + head.map(function (h) { return '<div class="cal-h">' + h + '</div>'; }).join("") + cells + '</div>' +
-      '<div class="cal-legend"><span><i style="background:var(--mint)"></i>基础完成</span><span><i style="box-shadow:inset 0 0 0 3px var(--gold);background:#fff"></i>拓展完成</span><span><i style="background:var(--mint);box-shadow:inset 0 0 0 3px var(--gold)"></i>全勤</span></div>';
+      '<div class="cal-legend"><span><i style="background:var(--mint)"></i>基础完成</span><span><i style="box-shadow:inset 0 0 0 3px var(--gold);background:#fff"></i>拓展完成</span><span><i style="background:var(--mint);box-shadow:inset 0 0 0 3px var(--gold)"></i>全勤</span><span>🌱 生活习惯</span><span>🏃 运动</span></div>';
     var summaryHTML = '<div class="cal-summary">本月已打卡 <b>' + monthDays + '</b> 天 · 连续 <b>' + streak + '</b> 天</div>';
     var chev = calendarCollapsed ? "▸" : "▾";
     var body = calendarCollapsed ? summaryHTML : gridHTML;
@@ -3142,7 +3160,11 @@ window.__CHARS_6B__ = [
 
     // 倒计时 / 完成提示（已取消打卡时间限制，仅提示结算时间）
     if (!t.done) {
-      html += '<div class="countdown">⏰ 今晚 ' + Math.floor(settleMin() / 60) + ':' + pad(settleMin() % 60) + ' 结算 · 20:00 前完成 +1⭐</div>';
+      if (t.type === "chore") {
+        html += '<div class="countdown">⏰ 今晚 ' + Math.floor(settleMin() / 60) + ':' + pad(settleMin() % 60) + ' 结算 · 逐项勾选完成即得 ⭐</div>';
+      } else {
+        html += '<div class="countdown">⏰ 今晚 ' + Math.floor(settleMin() / 60) + ':' + pad(settleMin() % 60) + ' 结算 · 20:00 前完成 +1⭐</div>';
+      }
     } else {
       var earlyTag = t.earlyBonus ? ' · 🟢 早打卡 +1⭐' : '';
       html += '<div class="countdown done">✅ 已完成' + (t.completedAt ? " · " + new Date(t.completedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : "") + earlyTag + '</div>';
@@ -3173,12 +3195,18 @@ window.__CHARS_6B__ = [
       var fixedHtml = habitList.map(function (grp) {
         var grpCls = grp.noStar ? "habit-grp no-star" : "habit-grp";
         var badge = grp.noStar ? ' <span class="grp-badge">不计星</span>' : '';
+        var grpNote = grp.noStar ? '<div class="grp-note">这些是你长大的本领，本来就该做，不给星星也超棒 💪</div>' : '';
         var items = grp.items.map(function (it) {
           var on = hd[it] ? " on" : "";
           var mark = hd[it] ? "✓" : "";
-          return '<li class="habit-item' + on + (grp.noStar ? " nss" : "") + '" data-act="habit-check" data-id="' + t.id + '" data-name="' + encodeURIComponent(it) + '">' + mark + '<span>' + esc(it) + '</span></li>';
+          var qtyHtml = "";
+          if (t.id === "t_sport") {
+            var qv = (t.habitQty && t.habitQty[it] != null) ? t.habitQty[it] : "";
+            qtyHtml = '<input type="number" class="habit-qty" inputmode="numeric" min="0" placeholder="做了多少" data-act="habit-qty" data-id="' + t.id + '" data-name="' + encodeURIComponent(it) + '" value="' + qv + '">';
+          }
+          return '<li class="habit-item' + on + (grp.noStar ? " nss" : "") + '" data-act="habit-check" data-id="' + t.id + '" data-name="' + encodeURIComponent(it) + '">' + mark + '<span>' + esc(it) + '</span>' + qtyHtml + '</li>';
         }).join("");
-        return '<div class="' + grpCls + '"><div class="habit-grp-title">' + esc(grp.g) + badge + '</div><ul class="habit-list">' + items + '</ul></div>';
+        return '<div class="' + grpCls + '"><div class="habit-grp-title">' + esc(grp.g) + badge + '</div><ul class="habit-list">' + items + '</ul>' + grpNote + '</div>';
       }).join("");
       var customSection = "";
       var customKey = null;
@@ -3200,11 +3228,18 @@ window.__CHARS_6B__ = [
       var starCount = taskRawStars(t);
       var noStarCount = 0;
       (habitList || []).forEach(function (g) { if (g.noStar) { (g.items || []).forEach(function (it) { if (hd[it]) noStarCount++; }); } });
+      var sportQtySum = 0;
+      if (t.id === "t_sport" && t.habitQty) {
+        Object.keys(t.habitQty).forEach(function (kk) { var v = parseFloat(t.habitQty[kk]); if (!isNaN(v)) sportQtySum += v; });
+      }
       var progTxt = '✅ 完成 ' + (starCount + noStarCount) + ' 项';
       if (noStarCount > 0) progTxt += '（个人习惯 ' + noStarCount + ' 项本就该做 · 不计星）';
       progTxt += ' · 得 ⭐ ' + starCount + (t.id === "t_sport" ? "（每项完成 +1⭐，可多选）" : "（家务每项 +1⭐，可多选）");
+      if (t.id === "t_sport" && sportQtySum > 0) progTxt += ' · 今日运动共 ' + sportQtySum + '（下/分钟）';
       var progress = '<div class="learned-ok">' + progTxt + '</div>';
-      html += '<div class="special habit-box">📋 ' + esc(t.title) + '（逐项勾选，每项完成得 1 颗星）<div class="habit-wrap">' + fixedHtml + customSection + '</div>' + progress + '</div>';
+      var boxSub = t.id === "t_sport" ? "（每项完成 +1⭐，可多选）" : "（家务每项 +1⭐，个人习惯不计星，可多选）";
+      var boxIcon = t.id === "t_sport" ? "🏃" : "📋";
+      html += '<div class="special habit-box">' + boxIcon + ' ' + esc(t.title) + boxSub + '<div class="habit-wrap">' + fixedHtml + customSection + '</div>' + progress + '</div>';
     }
 
     html += '</div>';
@@ -3824,6 +3859,10 @@ window.__CHARS_6B__ = [
         saveDB(); renderDay();
       }
     }
+    else if (act === "habit-qty") {
+      // 数量输入框：点击仅聚焦，不重渲染（避免丢失焦点）；实际保存由 change 事件处理
+      return;
+    }
     else if (act === "habit-custom-del") {
       withParentGate(function () {
         var i2 = parseInt(el.getAttribute("data-idx"), 10);
@@ -3840,7 +3879,8 @@ window.__CHARS_6B__ = [
       var iv = (inp ? inp.value : "").trim();
       if (!iv) { toast("请先输入项目名称"); return; }
       DB[ckey] = DB[ckey] || [];
-      if (DB[ckey].indexOf(iv) < 0) DB[ckey].push(iv);
+      if (DB[ckey].indexOf(iv) >= 0) { toast("「" + iv + "」已经在列表里啦～"); return; }
+      DB[ckey].push(iv);
       saveDB(); renderDay();
     }
   }
@@ -5290,6 +5330,17 @@ window.__CHARS_6B__ = [
         if (wr) { var id2 = wr.getAttribute("data-wrong"), t2 = findTask(id2); if (t2) { t2.wrong = wr.value === "" ? null : parseInt(wr.value, 10); t2.mathWrong = t2.wrong; saveDB(); recordStudy(); } return; }
         var tm = e.target.closest("[data-time]");
         if (tm) { var id3 = tm.getAttribute("data-time"), t3 = findTask(id3); if (t3) { t3.timeSec = tm.value === "" ? null : parseInt(tm.value, 10); t3.mathTime = t3.timeSec; saveDB(); recordStudy(); } }
+        var hq = e.target.closest('[data-act="habit-qty"]');
+        if (hq) {
+          var qid = hq.getAttribute("data-id"), qn = decodeURIComponent(hq.getAttribute("data-name") || ""), qt2 = findTask(qid);
+          if (qt2 && qn) {
+            qt2.habitQty = qt2.habitQty || {};
+            var qraw = hq.value.trim();
+            if (qraw === "") delete qt2.habitQty[qn];
+            else { var qnum = parseFloat(qraw); qt2.habitQty[qn] = isNaN(qnum) ? qraw : qnum; }
+            saveDB(); renderDay();
+          }
+        }
       });
     }
     $("#assetsWrap").addEventListener("click", function (e) {
