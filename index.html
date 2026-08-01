@@ -425,7 +425,7 @@ button.ghost.warn { background: var(--warn); color: #fff; }
   .bf-stars .star.lit { color: #f6c244; }
   .bf-undo-note { font-size: 12px; color: var(--text-soft); margin: 6px 0; }
 
-/* 花库 */
+/* 花园 */
 .flower-progress { margin: 4px 0 12px; font-size: 15px; }
 .flower-progress .bar { height: 10px; background: var(--gray-deep); border-radius: 6px; overflow: hidden; margin-top: 6px; }
 .flower-progress .bar-fill { height: 100%; background: linear-gradient(90deg,#ffb7c5,#f6c244); }
@@ -556,7 +556,7 @@ button.ghost.warn { background: var(--warn); color: #fff; }
 .study-meta .timer { font-weight: 700; color: var(--mint-deep); }
 .study-meta .ghost { padding: 4px 8px; font-size: 12px; }
 
-/* 花库：点亮后出现花的图片（SVG） */
+/* 花园：点亮后出现花的图片（SVG） */
 .flower-cell.got { background: #fff; border-color: var(--fc); box-shadow: 0 2px 10px rgba(0,0,0,.08); }
 .flower-cell .f-emoji .flower-svg { width: 44px; height: 44px; display: block; margin: 0 auto; }
 .flower-cell.locked .flower-svg { filter: grayscale(1); opacity: .55; }
@@ -2116,7 +2116,7 @@ window.__CHARS_6B__ = [
       dailyStats: {},
       dogs: [],
       reminders: { date: null, count: 0, withdrawn: false },
-      assets: { savingsStars: 0, totalFlowersEarned: 0, availableFlowers: 0, frozenFlowers: 0, cashLedger: [], dogLedger: [], totalCashIssued: 0, lastCashWeek: null, lastSettleDate: null, lotteryTickets: 0 },
+      assets: { savingsStars: 0, totalStarsEarned: 0, availableStars: 0, frozenStars: 0, cashLedger: [], dogLedger: [], totalCashIssued: 0, lastCashWeek: null, lastSettleDate: null, lotteryTickets: 0 },
       lotteryHistory: [],
       wishes: [],
       customHabits: [],
@@ -2268,6 +2268,12 @@ window.__CHARS_6B__ = [
     Object.keys(DB.flowerLib || {}).forEach(function (sid) {
       if ((DB.flowerLib[sid] || 0) > 0) DB.flowerDex[sid] = 1;
     });
+    // 货币键名规范化：旧存档误以「花朵」为名存储可花货币（即星币），现统一为「星币」，复制旧键到新键避免余额丢失
+    if (DB.assets) {
+      if (DB.assets.availableFlowers != null && DB.assets.availableStars == null) DB.assets.availableStars = DB.assets.availableFlowers;
+      if (DB.assets.totalFlowersEarned != null && DB.assets.totalStarsEarned == null) DB.assets.totalStarsEarned = DB.assets.totalFlowersEarned;
+      if (DB.assets.frozenFlowers != null && DB.assets.frozenStars == null) DB.assets.frozenStars = DB.assets.frozenFlowers;
+    }
     DB.dailyStats = DB.dailyStats || {};
     // 清理已取消的「小白鸥」模块残留数据（兼容旧存档）
     delete DB.xiaobaiou;
@@ -2624,7 +2630,7 @@ window.__CHARS_6B__ = [
     t.score = star; t.scoredToday = true;
     // 评星即代表孩子已会背，自动收入已背库
     if (t.type === "poem" && t.poemId && DB.poems.known.indexOf(t.poemId) < 0) DB.poems.known.push(t.poemId);
-    // 打卡获得星星 → 立刻绽放一朵花进花库（即时反馈，结算时不再重复绽放）
+    // 打卡获得星屑 → 立刻绽放一朵花进花园（即时反馈，结算时不再重复绽放）
     if (firstScore && star > 0) bloomFlower();
     saveDB(); renderDay();
   }
@@ -2830,12 +2836,12 @@ window.__CHARS_6B__ = [
       var total = rawStars + lucky + DB.assets.savingsStars;
       flowers = Math.floor(total / 20);
       DB.assets.savingsStars = total % 20;
-      // 满 10 朵额外奖励 1 元现金（单日封顶 11 元，由 exchangeCash 强制执行）
+      // 当日若合成满 10 颗⭐星币，额外奖励 1 元现金（仅 +1 元/天，进待付台账由家长支付）
       cashBonus = flowers >= 10 ? 1 : 0;
-      DB.assets.availableFlowers += flowers;
-      DB.assets.totalFlowersEarned += flowers;
-      // 花朵已在打卡评星时即时绽放进花库（见 setScore），结算时不再重复绽放
-      cashPotential = flowers; // 可兑现金 = 花朵数（1:1）
+      DB.assets.availableStars += flowers;
+      DB.assets.totalStarsEarned += flowers;
+      // 花朵已在打卡评星时即时绽放进花园（见 setScore），结算时不再重复绽放
+      cashPotential = flowers; // 可兑现金 = 星币数（1:1）
       if (cashBonus > 0) {
         DB.assets.cashLedger.push({ date: k, amount: cashBonus, bonus: true, week: getWeekKey(k), paid: false });
         DB.assets.totalCashIssued += cashBonus;
@@ -2937,17 +2943,17 @@ window.__CHARS_6B__ = [
     var w = DB.wishes.find(function (x) { return x.id === wishId; });
     if (!w) return;
     if (isSettledToday() === false && minutesNow() < settleMin()) { toast("今日结算未完成，兑换入口未解锁"); return; }
-    if (DB.assets.availableFlowers < w.cost) { toast("⭐星星余额不足"); return; }
+    if (DB.assets.availableStars < w.cost) { toast("⭐星币余额不足"); return; }
     if (w.status !== "open") { toast("已申请，等待家长审核"); return; }
-    DB.assets.availableFlowers -= w.cost; DB.assets.frozenFlowers += w.cost;
+    DB.assets.availableStars -= w.cost; DB.assets.frozenStars += w.cost;
     w.status = "pending"; w.appliedAt = dateKey();
     saveDB(); renderWish(); renderAssets();
   }
   function auditWish(wishId, ok) {
     var w = DB.wishes.find(function (x) { return x.id === wishId; });
     if (!w || w.status !== "pending") return;
-    if (ok) { DB.assets.frozenFlowers -= w.cost; w.status = "done"; }
-    else { DB.assets.availableFlowers += w.cost; DB.assets.frozenFlowers -= w.cost; w.status = "rejected"; }
+    if (ok) { DB.assets.frozenStars -= w.cost; w.status = "done"; }
+    else { DB.assets.availableStars += w.cost; DB.assets.frozenStars -= w.cost; w.status = "rejected"; }
     saveDB(); renderWish(); renderAssets();
   }
   function addWish(name, cost) {
@@ -2987,16 +2993,16 @@ window.__CHARS_6B__ = [
   function cashStatus() {
     if (!isSunday()) return { ok: false, msg: "现金兑换仅限每周日（零花钱日），下次 " + nextSundayText() };
     if (getWeekKey(dateKey()) === DB.assets.lastCashWeek) return { ok: false, msg: "本周已兑换，下周日（" + nextSundayText() + "）可再兑" };
-    return { ok: true, msg: "今天是零花钱日，可把剩余 ⭐星星换成现金" };
+    return { ok: true, msg: "今天是零花钱日，可把剩余 ⭐星币换成现金" };
   }
   function exchangeCash(amount) {
     amount = Math.floor(amount);
     if (amount <= 0) { toast("请输入有效金额"); return; }
-    if (DB.assets.availableFlowers < amount) { toast("⭐星星余额不足"); return; }
+    if (DB.assets.availableStars < amount) { toast("⭐星币余额不足"); return; }
     var st = cashStatus();
     if (!st.ok) { toast(st.msg); return; }
     var wk = getWeekKey(dateKey());
-    DB.assets.availableFlowers -= amount;
+    DB.assets.availableStars -= amount;
     DB.assets.cashLedger.push({ date: dateKey(), week: wk, amount: amount, paid: false });
     DB.assets.totalCashIssued += amount;
     DB.assets.lastCashWeek = wk;
@@ -3070,7 +3076,7 @@ window.__CHARS_6B__ = [
     { f: 100, name: "太阳系边缘", info: "你已飞越所有行星，向星际空间进发！" }
   ];
   function rocketInfo() {
-    var earn = DB.assets.totalFlowersEarned;
+    var earn = DB.assets.totalStarsEarned;
     var next = null, prev = MILESTONES[0];
     for (var i = 0; i < MILESTONES.length; i++) {
       if (MILESTONES[i].f <= earn) prev = MILESTONES[i];
@@ -3110,7 +3116,7 @@ window.__CHARS_6B__ = [
       { act: "penalty", ic: "⚠️", lbl: "惩罚" },
       { act: "backup", ic: "💾", lbl: "备份" },
       { act: "lottery", ic: "🎟️", lbl: "抽奖" },
-      { act: "flower", ic: "🌸", lbl: "花库" },
+      { act: "flower", ic: "🌸", lbl: "花园" },
       { act: "dog", ic: "🐶", lbl: "小狗的家" },
       { act: "tpl", ic: "⚙️", lbl: "模板 / 设置" }
     ];
@@ -3602,7 +3608,7 @@ window.__CHARS_6B__ = [
     if (!t || t.type !== "chinese-char" || t.done) return;
     if (!canRate()) { toast("已超时或已结算，无法过关"); return; }
     t.done = true; t.score = 5; t.completedAt = new Date().toISOString();
-    // 生字过关即时奖励 5 星进入储蓄罐，结算时再参与花朵合成
+    // 生字过关即时奖励 5 星屑进入储蓄罐，结算时再合成星币
     DB.assets.savingsStars += 5;
     // 记录进度（统一为 册#课 键）
     if (t.charBook) {
@@ -3648,7 +3654,7 @@ window.__CHARS_6B__ = [
     t.done = true;
     if (t.score == null) t.score = 5;
     if (!t.completedAt) t.completedAt = new Date().toISOString();
-    // 二类字会认读，即时奖励 5 星进入储蓄罐，与一类字一致
+    // 二类字会认读，即时奖励 5 星屑进入储蓄罐，与一类字一致
     DB.assets.savingsStars += 5;
     DB.charsProgress.lastKey = key;
     if (DB.charsProgress.learned.indexOf(key) < 0) DB.charsProgress.learned.push(key);
@@ -3672,17 +3678,17 @@ window.__CHARS_6B__ = [
       if (w.status === "open") btn = '<button data-act="wish-apply" data-id="' + w.id + '">申请兑换</button>';
       else if (w.status === "pending") btn = '<button data-act="wish-ok" data-id="' + w.id + '">✓ 通过</button><button class="warn" data-act="wish-no" data-id="' + w.id + '">✗ 驳回</button>';
       else btn = '<span class="tag">' + statusMap[w.status] + '</span>';
-      return '<div class="wish-item"><div class="meta">' + esc(w.name) + '<small>需 ' + w.cost + ' ⭐星星 · ' + statusMap[w.status] + '</small></div>' + btn + '</div>';
+      return '<div class="wish-item"><div class="meta">' + esc(w.name) + '<small>需 ' + w.cost + ' ⭐星币 · ' + statusMap[w.status] + '</small></div>' + btn + '</div>';
     }).join("") || '<div class="note">还没有心愿，家长可添加。</div>';
     var locked = !(minutesNow() >= settleMin());
     $("#wish").innerHTML = '<h3>🚀 火箭心愿兑换区' + (locked ? '（结算后解锁）' : '') + '</h3>' + list +
-      '<div class="wish-input"><input type="text" id="wishName" placeholder="心愿名称"><input type="number" id="wishCost" placeholder="星星数" style="width:90px"><button data-act="wish-add">添加</button></div>';
+      '<div class="wish-input"><input type="text" id="wishName" placeholder="心愿名称"><input type="number" id="wishCost" placeholder="星币数" style="width:90px"><button data-act="wish-add">添加</button></div>';
   }
 
   function renderAssets() {
     var a = DB.assets;
     var pending = pendingCash();
-    var sumEl = $("#assetsHeadSum"); if (sumEl) sumEl.textContent = "可用 " + a.availableFlowers + "⭐ · 待付 ¥" + pending;
+    var sumEl = $("#assetsHeadSum"); if (sumEl) sumEl.textContent = "可用 " + a.availableStars + "⭐ · 待付 ¥" + pending;
     var wrapEl = $("#assetsWrap"); if (wrapEl) wrapEl.classList.toggle("collapsed", assetsCollapsed);
     if (assetsCollapsed) return;
     var st = cashStatus();
@@ -3692,21 +3698,21 @@ window.__CHARS_6B__ = [
     if (!s) {
       settleLine = "🌙 今日尚未结算（结算后此处显示明细）";
     } else if (s.punished) {
-      settleLine = "🌙 今日结算明细：受罚，当日⭐星星/现金清零，星星作废，文字记录保留";
+      settleLine = "🌙 今日结算明细：受罚——当日不结算，星屑不计入、无现金奖励，文字记录保留";
     } else {
-      settleLine = "🌙 今日结算明细：原始 " + s.rawStars + " 星" +
+      settleLine = "🌙 今日结算明细：原始 " + s.rawStars + " ✨星屑" +
         (s.lucky > 0 ? " + 幸运 " + s.lucky + " 星" : "") +
-        " → 合成 " + s.flowers + " ⭐星星" +
-        (s.bonus > 0 ? "；满 10 朵单日超额奖励 +" + s.bonus + " 元现金" : "") +
+        " → 合成 " + s.flowers + " ⭐星币" +
+        (s.bonus > 0 ? "；满 10 颗⭐星币单日超额奖励 +" + s.bonus + " 元现金" : "") +
         (s.ignited ? "；🚀 点火成功" : "") +
-        "；储蓄罐余 " + s.savingsAfter + " 星";
+        "；储蓄罐余 " + s.savingsAfter + " ✨星屑";
     }
     var cashCard = '<div class="cash-card">' +
       '<div class="cash-status ' + (st.ok ? "ok" : "") + '">💵 ' + st.msg + '</div>' +
-      '<div class="cash-row"><input type="number" id="cashAmt" min="1" max="' + a.availableFlowers + '" placeholder="金额(≤' + a.availableFlowers + ')"> 元' +
+      '<div class="cash-row"><input type="number" id="cashAmt" min="1" max="' + a.availableStars + '" placeholder="金额(≤' + a.availableStars + ')"> 元' +
       '<button data-act="cash-do">兑换（家长）</button></div>' +
-      '<div class="cash-extra">现金需周日家长手动兑换（1 ⭐星星 = ¥1）' +
-      '<span class="sep">·</span>⭐ 是通用货币，不会自动变现金</div>' +
+      '<div class="cash-extra">现金需周日家长手动兑换（1 ⭐星币 = ¥1）' +
+      '<span class="sep">·</span>⭐星币 是通用货币，不会自动变现金</div>' +
       '<div class="cash-rec"><div class="rec-title">📋 兑换记录（剩余待付）<span style="font-size:11px;opacity:.7;font-weight:400;margin-left:6px">奖励现金同样需家长支付</span></div>' + cashExchangeRecordsHTML() + '</div>' +
       '</div>';
     function assetGrp(title, rows) {
@@ -3720,16 +3726,16 @@ window.__CHARS_6B__ = [
     }
     var penaltyStars = DB.penalties.reduce(function (s, p) { return s + (p.stars || 0); }, 0);
     var starsRows = [
-      { lbl: "可用 ⭐星星", val: a.availableFlowers, u: "⭐", hl: true },
-      { lbl: "今日任务得星", val: liveTodayRawStars(), u: "⭐" },
-      { lbl: "今日结算新增 ⭐星星", val: todayFlowers(), u: "⭐" },
-      { lbl: "累计获得 ⭐星星", val: a.totalFlowersEarned, u: "⭐" },
-      { lbl: "储蓄罐零散星", val: a.savingsStars, u: "⭐" },
-      { lbl: "考试满分奖励星", val: examStarsTotal(), u: "⭐" },
-      { lbl: "累计被扣", val: penaltyStars, u: "⭐" }
+      { lbl: "可用 ⭐星币", val: a.availableStars, u: "⭐", hl: true },
+      { lbl: "今日攒星屑", val: liveTodayRawStars(), u: "✨" },
+      { lbl: "今日结算新增 ⭐星币", val: todayStars(), u: "⭐" },
+      { lbl: "累计获得 ⭐星币", val: a.totalStarsEarned, u: "⭐" },
+      { lbl: "储蓄罐星屑", val: a.savingsStars, u: "✨" },
+      { lbl: "考试满分奖励星屑", val: examStarsTotal(), u: "✨" },
+      { lbl: "累计被扣星屑", val: penaltyStars, u: "✨" }
     ];
     var gardenRows = [
-      { lbl: "花库收集", val: distinctFlowerCount() + " / " + FLOWER_POOL.length, u: "种" },
+      { lbl: "花园收集", val: distinctFlowerCount() + " / " + FLOWER_POOL.length, u: "种" },
       { lbl: "今日已绽放", val: todayBloomCount(), u: "朵" }
     ];
     var friendRows = [
@@ -3746,8 +3752,8 @@ window.__CHARS_6B__ = [
       { lbl: "补打卡", val: "补记过去", act: "backfill" }
     ];
     $("#assets").innerHTML = '<h3>💰 资产面板</h3>' +
-      assetGrp("⭐ 星星（能花的钱）", starsRows) +
-      '<div class="asset-note">💡 完成一项打卡得 ⭐（小星星）；每攒够 20 颗 ⭐ 会自动合成 1 颗 ⭐星星。⭐星星就是能花的"钱"，用来换心愿、养小狗。🌸花园里收集的是另一种花，不花钱。</div>' +
+      assetGrp("⭐ 星币（能花的钱）", starsRows) +
+      '<div class="asset-note">💡 完成一项打卡得 ✨星屑；每攒够 20 颗 ✨星屑 会自动合成 1 颗 ⭐星币。⭐星币就是能花的"钱"，用来换心愿、养小狗。🌸花园里收集的是另一种花朵，只用来集齐不同种类解锁领养，不花钱。</div>' +
       assetGrp("🌸 花园", gardenRows) +
       assetGrp("🐶 伙伴", friendRows) +
       assetGrp("💵 现金", cashRows) +
@@ -3760,7 +3766,7 @@ window.__CHARS_6B__ = [
   function fmtMDay(k) { if (!k) return ''; var p = String(k).split('-'); return parseInt(p[1], 10) + '月' + parseInt(p[2], 10) + '日'; }
   // ---------- 收支明细弹窗 ----------
   function openLedger() {
-    // 一、星星获得明细：遍历已结算日期
+    // 一、星币获得明细：遍历已结算日期
     var days = Object.keys(DB.history).filter(function (k) {
       return DB.history[k] && DB.history[k].summary;
     }).sort().reverse();
@@ -3776,13 +3782,13 @@ window.__CHARS_6B__ = [
         '<span>' + (s.bonus > 0 ? s.bonus + '元' : '-') + '</span>' +
         '</div>';
     });
-    if (!earnRows) earnRows = '<div class="ledger-empty">还没有结算记录，完成打卡并每日结算后这里会显示星星获得明细。</div>';
-    // 对账：可用⭐ 应 = 累计合成 − 已花(心愿 + 喂狗/领养 + 兑现金)
+    if (!earnRows) earnRows = '<div class="ledger-empty">还没有结算记录，完成打卡并每日结算后这里会显示星币获得明细。</div>';
+    // 对账：可用⭐星币 应 = 累计合成 − 已花(心愿 + 喂狗/领养 + 兑现金)
     var _spentWish = (DB.wishes || []).reduce(function (s, w) { return s + (w.appliedAt && w.status !== "rejected" ? w.cost : 0); }, 0);
     var _spentDog = (DB.assets.dogLedger || []).reduce(function (s, d) { var m = /-?(\d+)/.exec(d.amt || ""); return s + (m ? parseInt(m[1], 10) : 0); }, 0);
     var _spentCash = (DB.assets.cashLedger || []).reduce(function (s, c) { return s + (c.bonus ? 0 : c.amount); }, 0);
     var _spent = _spentWish + _spentDog + _spentCash;
-    var _avail = DB.assets.availableFlowers;
+    var _avail = DB.assets.availableStars;
     var _reconOK = (earnFlower - _spent) === _avail;
     var earnTotal = '<div class="ledger-total">累计：原始 ' + earnRaw + ' 星 · 合成 ' + earnFlower + ' ⭐ · 现金奖励 ' + earnCash + ' 元</div>' +
       '<div class="ledger-total ' + (_reconOK ? "ok" : "warn") + '">' + (_reconOK ? "✅ 对账一致：" : "⚠️ 对账差异：") +
@@ -3815,7 +3821,7 @@ window.__CHARS_6B__ = [
     if (!exRows) exRows = '<div class="ledger-empty">还没有兑换记录。去「🎁 心愿」申请兑换、每周日兑现金，或在「🐶 小狗的家」喂养 / 领养小狗吧。</div>';
 
     var html = '<div class="ledger-sec">' +
-      '<h4>🌟 星星获得明细</h4>' +
+      '<h4>🌟 星币获得明细</h4>' +
       '<div class="ledger-row head"><span>日期</span><span>原始星</span><span>幸运星</span><span>合成⭐</span><span>现金奖励</span></div>' +
       earnRows + earnTotal + '<div class="ledger-note">📌 以上为每日结算后的锁定明细；结算后再撤销评分 / 换诗不会改变已结算的数字。</div>' + '</div>' +
       '<div class="ledger-sec">' +
@@ -3834,12 +3840,12 @@ window.__CHARS_6B__ = [
     sum = Math.round(sum * 10) / 10;
     return sum;
   }
-  // 实时：星星总数（已结算花朵折星 + 储蓄罐零散 + 今日未结算）
+  // 实时：星币总数（已结算星币 + 储蓄罐星屑 + 今日未结算）
   function liveStarTotal() {
     var a = DB.assets;
-    return a.availableFlowers * 20 + a.savingsStars + liveTodayRawStars();
+    return a.availableStars * 20 + a.savingsStars + liveTodayRawStars();
   }
-  function todayFlowers() { var s = todaySummary(); return s ? s.flowers : 0; }
+  function todayStars() { var s = todaySummary(); return s ? s.flowers : 0; }
   function todayBonus() { var s = todaySummary(); return s ? s.bonus : 0; }
   function examStarsTotal() { return DB.exams.reduce(function (s, e) { return s + (e.stars || 0); }, 0); }
 
@@ -3851,9 +3857,9 @@ window.__CHARS_6B__ = [
       return '<span class="m ' + (reached ? "reached" : "") + '">' + m.f + '·' + m.name + '</span>';
     }).join("");
     var card = info.next
-      ? '<div class="milestone-card">当前：<b>' + info.prev.name + '</b> · 下一站 <b>' + info.next.name + '</b>（还需 ' + (info.next.f - info.earn) + ' ⭐星星）<br>' + info.next.info + '</div>'
+      ? '<div class="milestone-card">当前：<b>' + info.prev.name + '</b> · 下一站 <b>' + info.next.name + '</b>（还需 ' + (info.next.f - info.earn) + ' ⭐星币）<br>' + info.next.info + '</div>'
       : '<div class="milestone-card">🚀 已抵达 <b>' + info.prev.name + '</b>！' + info.prev.info + '</div>';
-    $("#rocket").innerHTML = '<h3>🚀 火箭升空之旅（累计 ⭐星星 = 飞行高度）</h3>' +
+    $("#rocket").innerHTML = '<h3>🚀 火箭升空之旅（累计 ⭐星币 = 飞行高度）</h3>' +
       '<div class="rocket-track"><div class="rocket-fill" style="width:' + pct + '%"></div></div>' +
       '<div class="milestones">' + ms + '</div>' + card;
   }
@@ -4428,7 +4434,7 @@ window.__CHARS_6B__ = [
     var rec = { id: uid(), date: date, subject: subject, type: type, score: parseInt(score, 10), stars: stars, note: note || "", createdAt: Date.now() };
     DB.exams.push(rec);
     if (stars > 0) { DB.assets.savingsStars += stars; }
-    // 考试低于 95 分：语文/数学均扣 3 颗星星（惩罚）
+    // 考试低于 95 分：语文/数学均扣 3 颗星屑（惩罚）
     if (rec.score < 95) { applyPenalty("考试低于95分(" + subject + ")", 3); }
     saveDB();
     renderAssets();
@@ -4445,7 +4451,7 @@ window.__CHARS_6B__ = [
     "应付作业",
     "坐姿握姿屡教不改"
   ];
-  // 扣星：优先扣「储蓄罐零散星星」，不够再从「可用花朵」按 1 惩罚星=1 花 扣除；记录可撤销
+  // 扣星：优先扣「储蓄罐零散星屑」，不够再从「可用星币」按 1 惩罚星=1 星币 扣除；记录可撤销
   function applyPenalty(reason, stars) {
     stars = Math.max(1, parseInt(stars, 10) || 1);
     var dedSavings = 0, dedFlowers = 0;
@@ -4455,13 +4461,13 @@ window.__CHARS_6B__ = [
     }
     var rem = stars - dedSavings;
     if (rem > 0) {
-      dedFlowers = Math.min(DB.assets.availableFlowers, rem);
-      DB.assets.availableFlowers -= dedFlowers;
+      dedFlowers = Math.min(DB.assets.availableStars, rem);
+      DB.assets.availableStars -= dedFlowers;
     }
     var rec = { id: uid(), reason: reason, stars: stars, dedSavings: dedSavings, dedFlowers: dedFlowers, date: dateKey(), ts: Date.now() };
     DB.penalties.push(rec);
     saveDB(); renderAssets();
-    toast("⚠️ 已扣 " + stars + " 星：" + reason);
+    toast("⚠️ 已扣 " + stars + " 星屑：" + reason);
     return rec;
   }
   function deletePenalty(id) {
@@ -4469,10 +4475,10 @@ window.__CHARS_6B__ = [
     if (idx < 0) return;
     var p = DB.penalties[idx];
     DB.assets.savingsStars += (p.dedSavings || 0);
-    DB.assets.availableFlowers += (p.dedFlowers || 0);
+    DB.assets.availableStars += (p.dedFlowers || 0);
     DB.penalties.splice(idx, 1);
     saveDB(); renderAssets();
-    toast("已撤销惩罚，星星已退回");
+    toast("已撤销惩罚，扣除的星已退回");
   }
   // ---------- 花朵收集 & 小狗之家 ----------
   // 花种池（随机绽放）
@@ -4536,7 +4542,7 @@ window.__CHARS_6B__ = [
     }
     return '<svg viewBox="0 0 64 64" class="flower-svg" aria-hidden="true">' + petals + '<circle cx="32" cy="32" r="10" fill="' + center + '"/></svg>';
   }
-  // 赚星即随机绽放一朵花进花库：flowerLib 是可花货币，flowerDex 是永久图鉴（点亮永不清空）
+  // 赚星即随机绽放一朵花进花园：flowerLib 是花朵收藏计数，flowerDex 是永久图鉴（点亮永不清空）
   function bloomFlower(speciesId) {
     speciesId = speciesId || randomFlowerId();
     DB.flowerLib[speciesId] = (DB.flowerLib[speciesId] || 0) + 1;
@@ -4657,18 +4663,18 @@ window.__CHARS_6B__ = [
     DB.dogs.splice(i, 1); saveDB();
     return true;
   }
-  // 用星星喂小狗：每次 5 颗，+成长 +饱食 +心情
+  // 用星币喂小狗：每次 5 颗，+成长 +饱食 +心情
   var FULL_DECAY_HOURS = 60, MOOD_DECAY_HOURS = 72, FEED_COST = 5, GROWTH_PER_FEED = 12, GROWTH_PER_LEVEL = 100, MAX_DOGS = 3;
-  // 第 N 只小狗需要集齐的不同花种类数（解锁门槛，花库为永久图鉴、不消耗）：第1只10、第2只20、第3只30……
+  // 第 N 只小狗需要集齐的不同花种类数（解锁门槛，花园为永久图鉴、不消耗）：第1只10、第2只20、第3只30……
   function dogThreshold(dogIndex) { return (dogIndex + 1) * 10; }
-  // 第 N 只小狗消耗的 ⭐ 可用星星（与喂小狗 / 心愿 / 现金同一套货币）：第1只100、第2只200、第3只300……
+  // 第 N 只小狗消耗的 ⭐ 可用星币（与喂小狗 / 心愿 / 现金同一套货币）：第1只100、第2只200、第3只300……
   function dogStarCost(dogIndex) { return (dogIndex + 1) * 100; }
   function feedDog(id, stars) {
     stars = stars || FEED_COST;
     var dog = DB.dogs.find(function (d) { return d.id === id; });
     if (!dog) return { ok: false, msg: "小狗不存在" };
-    if (DB.assets.availableFlowers < stars) return { ok: false, msg: "⭐星星不足（需 " + stars + "）" };
-    DB.assets.availableFlowers -= stars;
+    if (DB.assets.availableStars < stars) return { ok: false, msg: "⭐星币不足（需 " + stars + "）" };
+    DB.assets.availableStars -= stars;
     DB.assets.dogLedger = DB.assets.dogLedger || [];
     DB.assets.dogLedger.push({ date: dateKey(), type: "喂养小狗", name: dogById(dog.species).name, amt: "-" + stars + "⭐", status: "已喂食", neg: true });
     dog.fedCount++; dog.fullness = 100; dog.mood = Math.min(100, dog.mood + 8); dog.lastFed = Date.now(); dog.fullAnchor = 100; dog.moodAnchor = dog.mood;
@@ -4678,22 +4684,22 @@ window.__CHARS_6B__ = [
     saveDB();
     return { ok: true, leveled: leveled, dog: dog };
   }
-  // 领养小狗：需集齐 N×10 种不同花（永久图鉴，不消耗）作为解锁门槛；领养消耗 N×100 ⭐ 可用星星（与喂小狗/心愿/现金同一套货币），最多同时养 3 只，可指定品种
-  function exchangeFlowersForDog(speciesId) {
+  // 领养小狗：需集齐 N×10 种不同花（永久图鉴，不消耗）作为解锁门槛；领养消耗 N×100 ⭐ 星币（与喂小狗/心愿/现金同一套货币），最多同时养 3 只，可指定品种
+  function adoptDog(speciesId) {
     if (DB.dogs.length >= MAX_DOGS) return { ok: false, msg: "最多同时养 " + MAX_DOGS + " 只小狗，先送养再领新成员吧" };
     var reqFlower = dogThreshold(DB.dogs.length);   // 解锁所需不同花种类数
     var reqStar = dogStarCost(DB.dogs.length);      // 领养消耗 ⭐
     var dex = distinctFlowerCount();
     if (dex < reqFlower) return { ok: false, msg: "第 " + (DB.dogs.length + 1) + " 只小狗还需集齐 " + (reqFlower - dex) + " 种不同花（当前 " + dex + " 种）" };
-    if (DB.assets.availableFlowers < reqStar) return { ok: false, msg: "⭐星星不足（需 " + reqStar + "⭐）" };
-    DB.assets.availableFlowers -= reqStar;   // 兑换后星星相应减少
+    if (DB.assets.availableStars < reqStar) return { ok: false, msg: "⭐星币不足（需 " + reqStar + "⭐）" };
+    DB.assets.availableStars -= reqStar;   // 领养后星币相应减少
     var dog = addDog(speciesId || dogOfDate());
     DB.assets.dogLedger = DB.assets.dogLedger || [];
     DB.assets.dogLedger.push({ date: dateKey(), type: "领养小狗", name: dogById(dog.species).name, amt: "-" + reqStar + "⭐", status: "已入住", neg: true });
     saveDB();
     return { ok: true, dog: dog };
   }
-  function openFlowerLib() {
+  function openGarden() {
     var distinct = distinctFlowerCount();
     var grid = FLOWER_POOL.map(function (f) {
       var n = DB.flowerLib[f.id] || 0, lit = !!DB.flowerDex[f.id];
@@ -4704,16 +4710,16 @@ window.__CHARS_6B__ = [
     }).join("");
     var nextReq = dogThreshold(DB.dogs.length);      // 解锁所需不同花种类数
     var nextStar = dogStarCost(DB.dogs.length);      // 领养消耗 ⭐
-    var hasStar = DB.assets.availableFlowers >= nextStar;
+    var hasStar = DB.assets.availableStars >= nextStar;
     var canEx = distinct >= nextReq && DB.dogs.length < MAX_DOGS && hasStar;
-    var html = '<p class="note">📖 花库是「永久图鉴」：每完成打卡赚到的星星会绽放一朵花，点亮过的品种永远保留、不会因领养而减少。花朵只用于解锁领养资格——集齐不同花即可领养小狗（第1只 10 种、第2只 20 种、第3只 30 种，最多同时养 ' + MAX_DOGS + ' 只）；领养时另需消耗 <b>' + nextStar + ' ⭐可用星星</b>（第1只 100⭐ / 第2只 200⭐ / 第3只 300⭐，与喂小狗 / 心愿 / 现金同一套货币，兑换后星星相应减少）。</p>' +
+    var html = '<p class="note">📖 花园是「永久图鉴」：每完成打卡赚到的星屑会绽放一朵花，点亮过的品种永远保留、不会因领养而减少。花朵只用于解锁领养资格——集齐不同花即可领养小狗（第1只 10 种、第2只 20 种、第3只 30 种，最多同时养 ' + MAX_DOGS + ' 只）；领养时另需消耗 <b>' + nextStar + ' ⭐星币</b>（第1只 100⭐ / 第2只 200⭐ / 第3只 300⭐，与喂小狗 / 心愿 / 现金同一套货币，领养后星币相应减少）。</p>' +
       '<div class="flower-progress">已点亮 <b>' + distinct + '</b> / ' + FLOWER_POOL.length + ' 种不同花' +
       '<div class="bar"><div class="bar-fill" style="width:' + Math.round(distinct / FLOWER_POOL.length * 100) + '%"></div></div></div>' +
       '<div class="flower-today">🌸 今日已绽放 <b>' + todayBloomCount() + '</b> 朵（多为已收藏的花再次开放，新花靠积累）</div>' +
       '<div class="flower-grid">' + grid + '</div>' +
       '<div class="actions"><button data-act="dog-exchange" ' + (canEx ? "" : "disabled") + '>🐶 领养小狗（第 ' + (DB.dogs.length + 1) + ' 只 · 需 ' + nextReq + ' 种不同花 · 消耗 ' + nextStar + '⭐）</button>' +
-      (canEx ? "" : '<span class="note">' + (DB.dogs.length >= MAX_DOGS ? ("已达上限 " + MAX_DOGS + " 只") : (!hasStar ? ("⭐星星不足（需 " + nextStar + "⭐）") : ("还差 " + (nextReq - distinct) + " 种不同花"))) + '</span>') + '</div>';
-    openModal("🌸 花库 · 花朵收集", html);
+      (canEx ? "" : '<span class="note">' + (DB.dogs.length >= MAX_DOGS ? ("已达上限 " + MAX_DOGS + " 只") : (!hasStar ? ("⭐星币不足（需 " + nextStar + "⭐）") : ("还差 " + (nextReq - distinct) + " 种不同花"))) + '</span>') + '</div>';
+    openModal("🌸 花园 · 花朵收集", html);
     var exBtn = $("#modal [data-act=dog-exchange]");
     if (exBtn) exBtn.onclick = function () { openDogAdopt(); };
   }
@@ -4723,22 +4729,22 @@ window.__CHARS_6B__ = [
     var reqFlower = dogThreshold(DB.dogs.length);   // 解锁所需不同花种类数
     var reqStar = dogStarCost(DB.dogs.length);      // 领养消耗 ⭐
     var dex = distinctFlowerCount();
-    var hasStar = DB.assets.availableFlowers >= reqStar;
+    var hasStar = DB.assets.availableStars >= reqStar;
     var can = dex >= reqFlower && hasStar;
     var cards = DOG_POOL.map(function (d) {
       return '<button class="breed-card" data-breed="' + d.id + '" ' + (can ? "" : "disabled") + ' style="--bc:' + d.color + '">' +
         '<div class="breed-pup"><img class="breed-img" src="' + d.img + '" alt="' + d.name + '" onerror="this.parentNode.innerHTML=\'' + (d.emoji || "🐶") + '\'"></div><div class="breed-name">' + d.name + '</div></button>';
     }).join("");
-    var html = '<p class="note">第 ' + (DB.dogs.length + 1) + ' 只小狗需要集齐 <b>' + reqFlower + '</b> 种不同花（当前已点亮 ' + dex + ' 种，花库为永久图鉴，领养不减少已点亮品种），并消耗 <b>' + reqStar + ' ⭐</b>（第1只 100 / 第2只 200 / 第3只 300，兑换后星星相应减少）。最多同时养 ' + MAX_DOGS + ' 只，品种可以不一样～</p>' +
+    var html = '<p class="note">第 ' + (DB.dogs.length + 1) + ' 只小狗需要集齐 <b>' + reqFlower + '</b> 种不同花（当前已点亮 ' + dex + ' 种，花园为永久图鉴，领养不减少已点亮品种），并消耗 <b>' + reqStar + ' ⭐</b>（第1只 100 / 第2只 200 / 第3只 300，领养后星币相应减少）。最多同时养 ' + MAX_DOGS + ' 只，品种可以不一样～</p>' +
       '<div class="breed-grid">' + cards + '</div>' +
-      (can ? "" : '<div class="note">' + (!hasStar ? ('⭐星星不足（需 ' + reqStar + '⭐）') : ('还差 ' + (reqFlower - dex) + ' 种不同花，继续打卡赚花吧～')) + '</div>');
+      (can ? "" : '<div class="note">' + (!hasStar ? ('⭐星币不足（需 ' + reqStar + '⭐）') : ('还差 ' + (reqFlower - dex) + ' 种不同花，继续打卡赚花吧～')) + '</div>');
     openModal("🐶 选择小狗品种", html);
     $("#modal").querySelectorAll(".breed-card").forEach(function (el) {
       el.onclick = function () {
-        var r = exchangeFlowersForDog(el.getAttribute("data-breed"));
+        var r = adoptDog(el.getAttribute("data-breed"));
         if (!r.ok) { toast(r.msg); return; }
         toast("🎉 一只" + dogById(r.dog.species).name + "住进小狗的家啦！");
-        confetti(); openFlowerLib();
+        confetti(); openGarden();
       };
     });
   }
@@ -4757,14 +4763,14 @@ window.__CHARS_6B__ = [
         '<rect x="78" y="70" width="16" height="16" rx="3" fill="#b3e5fc"/>' +
         '</svg>' +
         '<div class="empty-title">还没小狗来家里做客 🐾</div>' +
-        '<div class="empty-sub">去「🌸 花库」集齐 <b>10 种不同花</b> 解锁领养资格，再备好 <b>100 ⭐</b> 就能领养第一只啦～<br>（第2只 20 种花 + 200⭐，第3只 30 种花 + 300⭐，最多同时养 ' + MAX_DOGS + ' 只）</div>' +
-        '<button class="cute-btn" onclick="openFlowerLib()">🌸 去花库赚花 &amp; 星星</button>' +
+        '<div class="empty-sub">去「🌸 花园」集齐 <b>10 种不同花</b> 解锁领养资格，再备好 <b>100 ⭐</b> 就能领养第一只啦～<br>（第2只 20 种花 + 200⭐，第3只 30 种花 + 300⭐，最多同时养 ' + MAX_DOGS + ' 只）</div>' +
+        '<button class="cute-btn" onclick="openGarden()">🌸 去花园赚花 &amp; 星币</button>' +
         '</div>';
     } else {
       body = dogs.map(function (dog) {
         decayDog(dog);
         var d = dogById(dog.species);
-        var canFeed = a.availableFlowers >= FEED_COST;
+        var canFeed = a.availableStars >= FEED_COST;
         var hungry = dog.fullness < 30;
         return '<div class="dog-card" style="--dc:' + d.color + '">' +
           '<div class="dog-portrait" style="--dc:' + d.color + '"><img class="dog-portrait-img" src="' + d.img + '" alt="' + d.name + '" onerror="this.style.display=\'none\'; this.parentNode.appendChild(document.createTextNode(\'' + (d.emoji || "🐶") + '\'));"></div>' +
@@ -4776,7 +4782,7 @@ window.__CHARS_6B__ = [
           '<div class="dog-stats">已喂 ' + dog.fedCount + ' 次 · 入住 ' + dog.bornDate + '</div>' +
           dogDenHtml(dog) +
           dogRoadmapHtml(dog) +
-          '<div class="dog-btns"><button class="feed-btn" data-act="dog-feed" data-id="' + dog.id + '" ' + (canFeed ? "" : "disabled") + '>🍖 喂星星（' + FEED_COST + '⭐）</button>' +
+          '<div class="dog-btns"><button class="feed-btn" data-act="dog-feed" data-id="' + dog.id + '" ' + (canFeed ? "" : "disabled") + '>🍖 喂星币（' + FEED_COST + '⭐）</button>' +
           '<button class="ghost release-btn" data-act="dog-release" data-id="' + dog.id + '">送养</button></div>' +
           '</div>';
       }).join("");
@@ -4784,9 +4790,9 @@ window.__CHARS_6B__ = [
     }
     var html = '<div class="dog-hero" style="background-image:url(\'data:image/jpeg;base64,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\')">' +
       '<div class="dog-hero-mask"><div class="dog-hero-title">🐾 小狗的家</div>' +
-      '<div class="dog-hero-sub">用 ⭐ 喂小狗，看它长大、把家布置得更漂亮</div></div></div>' +
+      '<div class="dog-hero-sub">用 ⭐星币 喂小狗，看它长大、把家布置得更漂亮</div></div></div>' +
       '<p class="note">每次喂养 ' + FEED_COST + ' 颗 ⭐：成长 +' + GROWTH_PER_FEED + '，升满 ' + GROWTH_PER_LEVEL + ' 成长升 1 级，解锁新家具；最多同时养 ' + MAX_DOGS + ' 只，品种可以不一样。</p>' +
-      '<div class="dog-yard">当前可用 ⭐星星：<b>' + a.availableFlowers + '</b> · 小狗 <b>' + dogs.length + '</b> / ' + MAX_DOGS + ' 只</div>' +
+      '<div class="dog-yard">当前可用 ⭐星币：<b>' + a.availableStars + '</b> · 小狗 <b>' + dogs.length + '</b> / ' + MAX_DOGS + ' 只</div>' +
       (dogs.length ? '<div class="dog-list">' + body + '</div>' : body);
     openModal("🐶 小狗的家", html);
     $("#modal").querySelectorAll("[data-act=dog-feed]").forEach(function (el) {
@@ -5128,7 +5134,7 @@ window.__CHARS_6B__ = [
   }
   function closeModal() { $("#overlay").classList.remove("show"); }
   // ---------- 补打卡（补记任意历史日期） ----------
-  // 说明：补打卡只用于「过去（≤昨天）」的日期；今天请用正常打卡。补记会按星星折算 ⭐/💰 并写入收支明细与火箭高度，
+  // 说明：补打卡只用于「过去（≤昨天）」的日期；今天请用正常打卡。补记会按星币折算 ⭐/💰 并写入收支明细与火箭高度，
   // 但不影响连胜/抽奖（settleDate 的 backfill 分支已隔离）。记账可逆，重复保存不会二次计息。
   var bfState = {};
   function openBackfill() {
@@ -5137,7 +5143,7 @@ window.__CHARS_6B__ = [
   function renderBackfill() {
     var def = addDays(dateKey(), -1);
     var maxD = addDays(dateKey(), -1);
-    var html = '<p class="note">📅 补打卡用于补记过去的打卡（今天请用正常打卡）。补记后会按星星折算 ⭐ 星星与 💰 现金奖励，并计入收支明细和火箭高度；连胜与抽奖不受影响。</p>' +
+    var html = '<p class="note">📅 补打卡用于补记过去的打卡（今天请用正常打卡）。补记后会按星币折算 ⭐星币与 💰 现金奖励，并计入收支明细和火箭高度；连胜与抽奖不受影响。</p>' +
       '<label>选择日期（不晚于昨天）</label>' +
       '<input type="date" id="bfDate" value="' + def + '" max="' + maxD + '">' +
       '<div class="bf-undo-note" id="bfUndoNote"></div>' +
@@ -5265,8 +5271,8 @@ window.__CHARS_6B__ = [
     });
     var flowers = Math.floor(rawStars / 20);
     var savings = rawStars % 20;
-    DB.assets.availableFlowers += flowers;
-    DB.assets.totalFlowersEarned += flowers;
+    DB.assets.availableStars += flowers;
+    DB.assets.totalStarsEarned += flowers;
     DB.assets.savingsStars += savings;
     var bonus = flowers >= 10 ? 1 : 0;
     if (bonus > 0) {
@@ -5290,8 +5296,8 @@ window.__CHARS_6B__ = [
     var day = DB.history[k];
     if (!day || !day.credited) return;
     var c = day.credited;
-    DB.assets.availableFlowers = Math.max(0, DB.assets.availableFlowers - c.flowers);
-    DB.assets.totalFlowersEarned = Math.max(0, DB.assets.totalFlowersEarned - c.flowers);
+    DB.assets.availableStars = Math.max(0, DB.assets.availableStars - c.flowers);
+    DB.assets.totalStarsEarned = Math.max(0, DB.assets.totalStarsEarned - c.flowers);
     DB.assets.savingsStars = Math.max(0, DB.assets.savingsStars - c.savings);
     if (c.bonus > 0) {
       var idx = -1;
@@ -5350,7 +5356,7 @@ window.__CHARS_6B__ = [
       else if (a === "penalty") openPenalty();
       else if (a === "backup") openBackup();
       else if (a === "lottery") openLottery();
-      else if (a === "flower") openFlowerLib();
+      else if (a === "flower") openGarden();
       else if (a === "dog") openDogHome();
     });
     $("#reminder").addEventListener("click", function (e) {
@@ -5376,7 +5382,7 @@ window.__CHARS_6B__ = [
       } else if (a === "cash-paid") {
         withParentGate(function () { markCashPaid(); });
       } else if (a === "flower") {
-        openFlowerLib();
+        openGarden();
       } else if (a === "dog") {
         openDogHome();
       } else if (a === "ledger") {
@@ -5449,7 +5455,7 @@ window.__CHARS_6B__ = [
     getHabitDone: function (id) { var t = findTask(id); return t ? (t.habitDone || {}) : {}; },
     migrate: migrateDB, poemSetByInput: poemSetByInput, openPoemInput: openPoemInput,
     applyPenalty: applyPenalty, deletePenalty: deletePenalty, getPenalties: function () { return DB.penalties.slice(); },
-    bloomFlower: bloomFlower, distinctFlowerCount: distinctFlowerCount, flowerPool: FLOWER_POOL, exchangeFlowersForDog: exchangeFlowersForDog,
+    bloomFlower: bloomFlower, distinctFlowerCount: distinctFlowerCount, flowerPool: FLOWER_POOL, adoptDog: adoptDog,
     addDog: addDog, feedDog: feedDog, releaseDog: releaseDog, dogOfDate: dogOfDate, FURNITURE: FURNITURE, MAX_DOGS: MAX_DOGS, dogThreshold: dogThreshold,
     getFlowerLib: function () { return DB.flowerLib; }, getFlowerDex: function () { return DB.flowerDex; }, getDogs: function () { return DB.dogs.slice(); },
     recordStudy: recordStudy, getDailyStats: function () { return DB.dailyStats; }, openDogAdopt: openDogAdopt, flowerSVG: flowerSVG,
