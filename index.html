@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#f7b8d0">
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-512.png">
   <title>火箭一飞冲天</title>
   <style>
 /* ===== 火箭一飞冲天 · 样式 ===== */
@@ -1579,6 +1581,9 @@ window.__CHARS_6B__ = [
 ];
 
 </script>
+
+  <script src="chars_data/2B_er.js"></script>
+
   <script>
 /* 部编版二年级上册语文生字表（人教版）
    每课按课文顺序排列，包含：字、拼音、组词、造句。
@@ -1974,6 +1979,11 @@ window.__CHARS_6B__ = [
       L("当世界年纪还小的时候", [{c:"世",p:"shì",w:"世界、世纪、世外桃源(成语)",s:"他向往世外桃源，世界的广阔在书里展开。"},{c:"界",p:"jiè",w:"世界、边界、界",s:"世界的边界之外，边界的草照样绿。"},{c:"功",p:"ɡōnɡ",w:"功夫、成功、功亏一篑(成语)",s:"他功亏一篑后重来，功夫不负有心人，终获成功。"},{c:"反",p:"fǎn",w:"反对、反面、反客为主(成语)",s:"他反客为主帮了忙，反对的声浪也变小了。"},{c:"复",p:"fù",w:"复习、重复、复",s:"他认真复习，重复练习让错题变熟。"},{c:"式",p:"shì",w:"公式、方式、式",s:"他用新方式解题，公式在纸上排成行。"},{c:"简",p:"jiǎn",w:"简单、简洁、简",s:"这道题很简单，简洁的回答最清楚。"},{c:"弄",p:"nònɡ",w:"弄懂、玩弄、弄巧成拙(成语)",s:"他弄懂了原理，玩弄小聪明反而弄巧成拙。"},{c:"由",p:"yóu",w:"理由、自由、由来已久(成语)",s:"自由可贵，理由要正当；这习惯由来已久。"}]),
       L("羿射九日", [{c:"觉",p:"jué",w:"睡觉、觉悟、觉",s:"他早点睡觉，觉悟在清晨最清。"},{c:"值",p:"zhí",w:"值得、值日、值",s:"今天他值日，值得做的事再难也做。"},{c:"类",p:"lèi",w:"种类、人类、类",s:"动物的种类真多，人类要爱护它们。"},{c:"艰",p:"jiān",w:"艰苦、艰难、艰",s:"条件虽艰苦，艰难挡不住向上的心。"},{c:"弓",p:"ɡōnɡ",w:"弓箭、拉弓、弓",s:"他拉弓射箭，弓弦嗡地一声。"},{c:"炎",p:"yán",w:"炎热、发炎、炎",s:"炎热的夏天，发炎的伤口要小心。"},{c:"害",p:"hài",w:"害怕、害虫、害",s:"他不再害怕，害虫也要科学对付。"},{c:"此",p:"cǐ",w:"此处、此时、此起彼伏(成语)",s:"欢呼声此起彼伏，此处此时格外热闹。"},{c:"新",p:"xīn",w:"新鲜、新年、新",s:"新鲜的水果真甜，新年的钟声敲响希望。"}])
     ];
+    // 注入二类字（按课文顺序，与 lessons 一一对应），数据来自 chars_data/2B_er.js（部编版二下识字表·会认）
+    var erArr2B = window.CHARS_2B_2 || [];
+    for (var bi = 0; bi < lessons.length && bi < erArr2B.length; bi++) {
+      lessons[bi].er = erArr2B[bi].chars || [];
+    }
     return { id: "2B", grade: "二年级", term: "下册", name: "二年级下册", lessons: lessons };
   }
   // ===== 三年级上册~六年级下册：由联网检索到的官方《写字表》逐册补入 =====
@@ -2027,6 +2037,7 @@ window.__CHARS_6B__ = [
       { cat: "数学", sub: "基础", title: "计算练习", type: "math" },
       { cat: "数学", sub: "拓展", title: "思维提升课 或 速算提升课（二选一）", type: "choice", id: "t_math_choice", options: ["思维提升课 1 节", "速算提升课 1 节"] },
       { cat: "英语", sub: "基础", title: "英语阅读：Raz 绘本 或 大玛泽动画（二选一）", type: "choice", id: "t_eng_choice", options: ["Raz 绘本阅读 3~5 本", "大玛泽动画精读 1 集"], desc: "每天二选一：Raz 分级绘本指读跟读，或大玛泽动画精听精读 1 集，原版材料真实可感，不依赖机器发音。" },
+      { id: "t_eng_preview", cat: "英语", sub: "拓展", title: "预习英语每日一课", type: "normal" },
       { id: "t_life", cat: "培养生活习惯", sub: "基础", title: "今日培养生活习惯", type: "chore" }
     ];
     return list.map(function (x, i) {
@@ -2069,14 +2080,30 @@ window.__CHARS_6B__ = [
 
   // ---------- 读写数据库 ----------
   var DB;
-  function reconcileTpl(arr, isDay) {
-    // 删除已移除的任务（旧版英语通用任务 / 历史残留任务）
-    arr = arr.filter(function (t) {
-      return t.title !== "新课预习" && t.title !== "Raz 绘本阅读 3~5 本" && t.title !== "大玛泽动画精读 1 集" &&
-        t.id !== "t_eng_flash" && t.id !== "t_eng_phonics" && t.id !== "t_eng_sentence" && t.id !== "t_eng_preview" &&
-        t.id !== "t_pu_vocab" && t.id !== "t_pu_sentence" && t.id !== "t_pu_story" &&
-        t.title !== "预习三年级每日一课" && t.title !== "语熙三年级每日一课" && t.title !== "阅读理解 1~2 篇" && t.title !== "看图写话 1 篇";
+
+  // 数据 schema 版本：每次「结构性」变更（新增/删除/重命名任务）时 +1。
+  // 迁移统一按版本号执行，避免散落在各处的手写判断。
+  var SCHEMA_VERSION = 2;
+
+  // 已弃用任务清单（单一数据源）：曾存在、现已移除的任务，迁移时从模板与历史中清除。
+  // 新增弃用项只需在此数组追加；切勿让新功能的任务 id/标题与之撞名，否则会被误删。
+  var DEPRECATED_TASKS = [
+    { id: "t_eng_flash" }, { id: "t_eng_phonics" }, { id: "t_eng_sentence" },
+    { id: "t_pu_vocab" }, { id: "t_pu_sentence" }, { id: "t_pu_story" },
+    { title: "新课预习" }, { title: "Raz 绘本阅读 3~5 本" }, { title: "大玛泽动画精读 1 集" },
+    { title: "预习三年级每日一课" }, { title: "语熙三年级每日一课" },
+    { title: "阅读理解 1~2 篇" }, { title: "看图写话 1 篇" }
+  ];
+
+  function isDeprecated(t) {
+    return DEPRECATED_TASKS.some(function (d) {
+      return (d.id && t.id === d.id) || (d.title && t.title === d.title);
     });
+  }
+
+  function reconcileTpl(arr, isDay) {
+    // 删除已移除的任务（依据 DEPRECATED_TASKS 单一清单）
+    arr = arr.filter(function (t) { return !isDeprecated(t); });
     // 统一培养生活习惯任务为固定 id（避免旧数据重复/缺失导致「点进去没内容」）
     arr = arr.filter(function (t) { return !(t.type === "chore" && t.id !== "t_life"); });
     // 计算练习：调整为数学基础
@@ -2097,6 +2124,12 @@ window.__CHARS_6B__ = [
       if (isDay) { ec.done = false; ec.score = null; ec.completedAt = null; ec.scoredToday = false; ec.chosen = null; }
       arr.push(ec);
     }
+    // 英语拓展：预习英语每日一课（t_eng_preview）已恢复显示
+    if (!arr.some(function (t) { return t.id === "t_eng_preview"; })) {
+      var ep = { id: "t_eng_preview", cat: "英语", sub: "拓展", title: "预习英语每日一课", type: "normal", enabled: true };
+      if (isDay) { ep.done = false; ep.score = null; ep.completedAt = null; ep.scoredToday = false; }
+      arr.push(ep);
+    }
     // 语文拓展：三选一（阅读理解 / 看图写话 / 小白鸥语文基础打卡）
     if (!arr.some(function (t) { return t.id === "t_cn_ext"; })) {
       var ce = { id: "t_cn_ext", cat: "语文", sub: "拓展", title: "语文拓展（三选一）", type: "choice", enabled: true,
@@ -2104,7 +2137,7 @@ window.__CHARS_6B__ = [
       if (isDay) { ce.done = false; ce.score = null; ce.completedAt = null; ce.scoredToday = false; ce.chosen = null; }
       arr.push(ce);
     }
-    // 英语拓展：预习英语每日一课（t_eng_preview）已按要求移除，不再生成
+    // 英语拓展：预习英语每日一课（t_eng_preview）已恢复（见上方恢复逻辑）
     // 保证培养生活习惯任务存在于每个模板与每日任务（修复旧库缺此任务→分类空白）
     if (!arr.some(function (t) { return t.id === "t_life"; })) {
       var lh = { id: "t_life", cat: "培养生活习惯", sub: "基础", title: "今日培养生活习惯", type: "chore", enabled: true };
@@ -2133,6 +2166,8 @@ window.__CHARS_6B__ = [
     return arr;
   }
   function migrateDB() {
+    // 迁移前先快照当前数据库到独立 key，万一迁移异常可用「导入备份」恢复（独立于易丢失的 ROLLBACK）
+    try { localStorage.setItem("rocket_wish_safebk_v1", JSON.stringify(DB)); } catch (e) {}
     // 把核心任务（生字跟练）补入所有模板与今日任务，解决「旧数据升级后不显示」的问题
     var core = { id: "t_char_core", cat: "语文", sub: "基础", title: "生字跟练", type: "chinese-char", enabled: true };
     Object.keys(DB.templates || {}).forEach(function (tn) {
@@ -2183,6 +2218,8 @@ window.__CHARS_6B__ = [
     Object.keys(DB.history || {}).forEach(function (k) {
       DB.history[k].tasks = (DB.history[k].tasks || []).filter(function (t) { return t.type !== "xiaobaiou"; });
     });
+    // 记录当前 schema 版本，便于未来按版本号增量迁移
+    DB.schemaVersion = SCHEMA_VERSION;
   }
   // 旧数据兼容：把数字课号(charLesson) 与进度(learned/lastLesson) 迁移为 册#课 键模型
   function migrateCharRefs() {
@@ -4786,6 +4823,10 @@ window.__CHARS_6B__ = [
       if (DB.backupMeta && DB.backupMeta.lastAutoOpen === dateKey()) return; // 今天已自动备过
       var ok = exportBackup({ silent: true });
       if (ok) { DB.backupMeta = DB.backupMeta || {}; DB.backupMeta.lastAutoOpen = dateKey(); saveDB(); }
+      // 若已配置 GitHub 同步，打开时顺手把最新数据推到云端，换设备/清缓存也能一键恢复
+      if (ok && typeof syncReady !== "undefined" && syncReady && typeof cloudPush === "function") {
+        try { cloudPush().catch(function () {}); } catch (e) {}
+      }
     } catch (e) {}
   }
   // 改动模板/任务前，默默在本地留一份全量快照（多级栈），改坏了可逐级一键还原（不弹下载、不占文件）
