@@ -2084,6 +2084,7 @@ window.__CHARS_6B__ = [
       lotteryHistory: [],
       wishes: [],
       customHabits: [],
+      customSports: [],
       streak: { count: 0, lastCompletedDate: null, supplyPods: 0, lastPodWeek: null },
       settlement: { lastSettledDate: null },
       timeCheck: { lastSeenTs: Date.now() },
@@ -2212,6 +2213,8 @@ window.__CHARS_6B__ = [
     if (DB.history && DB.history[k]) DB.history[k].tasks = reconcileTpl(DB.history[k].tasks || [], true);
     // 自定义生活习惯项目（家长添加，跨日保留）
     DB.customHabits = DB.customHabits || [];
+    // 自定义运动项目（家长添加，跨日保留）
+    DB.customSports = DB.customSports || [];
     // 补救：用户决定取消家长密码验证——对仍开启验证的旧设备，一次性关闭验证并清密码；
     // 用 fixes.pinDisabled 标记，只执行一次，之后用户在设置里重新开启验证不会被覆盖
     DB.fixes = DB.fixes || {};
@@ -3178,22 +3181,28 @@ window.__CHARS_6B__ = [
         return '<div class="' + grpCls + '"><div class="habit-grp-title">' + esc(grp.g) + badge + '</div><ul class="habit-list">' + items + '</ul></div>';
       }).join("");
       var customSection = "";
-      if (t.id === "t_life") {
-        var customs = (DB.customHabits || []).map(function (it, i) {
+      var customKey = null;
+      if (t.id === "t_life") customKey = "customHabits";
+      else if (t.id === "t_sport") customKey = "customSports";
+      if (customKey) {
+        var custArr = DB[customKey] || [];
+        var customs = custArr.map(function (it, i) {
           var on = hd[it] ? " on" : "";
           var mark = hd[it] ? "✓" : "";
-          return '<li class="habit-item custom' + on + '"><span class="habit-label" data-act="habit-check" data-id="' + t.id + '" data-name="' + encodeURIComponent(it) + '">' + mark + esc(it) + '</span><span class="habit-del" data-act="habit-custom-del" data-idx="' + i + '">✕</span></li>';
+          return '<li class="habit-item custom' + on + '"><span class="habit-label" data-act="habit-check" data-id="' + t.id + '" data-name="' + encodeURIComponent(it) + '">' + mark + esc(it) + '</span><span class="habit-del" data-act="habit-custom-del" data-id="' + t.id + '" data-idx="' + i + '">✕</span></li>';
         }).join("");
-        customSection = '<div class="habit-grp"><div class="habit-grp-title">⭐ 我的自定义项目</div>' +
+        var custTitle = t.id === "t_sport" ? "🏃 我的自定义运动" : "⭐ 我的自定义项目";
+        var custPh = t.id === "t_sport" ? "如：游泳、轮滑、篮球" : "如：自己整理床铺、帮拿快递";
+        customSection = '<div class="habit-grp"><div class="habit-grp-title">' + custTitle + '</div>' +
           (customs ? '<ul class="habit-list">' + customs + '</ul>' : '<div class="note">还没有自定义项目，下面添加一条吧～</div>') +
-          '<div class="habit-add"><input type="text" id="habitInput" placeholder="如：自己整理床铺、帮拿快递" maxlength="20"><button data-act="habit-custom-add" data-id="' + t.id + '">＋ 添加</button></div></div>';
+          '<div class="habit-add"><input type="text" id="habitInput_' + t.id + '" placeholder="' + custPh + '" maxlength="20"><button data-act="habit-custom-add" data-id="' + t.id + '">＋ 添加</button></div></div>';
       }
       var starCount = taskRawStars(t);
       var noStarCount = 0;
       (habitList || []).forEach(function (g) { if (g.noStar) { (g.items || []).forEach(function (it) { if (hd[it]) noStarCount++; }); } });
       var progTxt = '✅ 完成 ' + (starCount + noStarCount) + ' 项';
       if (noStarCount > 0) progTxt += '（个人习惯 ' + noStarCount + ' 项本就该做 · 不计星）';
-      progTxt += ' · 得 ⭐ ' + starCount + '（家务每项 +1⭐，可多选）';
+      progTxt += ' · 得 ⭐ ' + starCount + (t.id === "t_sport" ? "（每项完成 +1⭐，可多选）" : "（家务每项 +1⭐，可多选）");
       var progress = '<div class="learned-ok">' + progTxt + '</div>';
       html += '<div class="special habit-box">📋 ' + esc(t.title) + '（逐项勾选，每项完成得 1 颗星）<div class="habit-wrap">' + fixedHtml + customSection + '</div>' + progress + '</div>';
     }
@@ -3818,14 +3827,20 @@ window.__CHARS_6B__ = [
     else if (act === "habit-custom-del") {
       withParentGate(function () {
         var i2 = parseInt(el.getAttribute("data-idx"), 10);
-        if (!isNaN(i2) && DB.customHabits) { DB.customHabits.splice(i2, 1); saveDB(); renderDay(); }
+        var tid = el.getAttribute("data-id");
+        var ckey = tid === "t_sport" ? "customSports" : "customHabits";
+        var carr = DB[ckey];
+        if (!isNaN(i2) && carr) { carr.splice(i2, 1); saveDB(); renderDay(); }
       });
     }
     else if (act === "habit-custom-add") {
-      var iv = (document.getElementById("habitInput") ? document.getElementById("habitInput").value : "").trim();
+      var tid = el.getAttribute("data-id");
+      var ckey = tid === "t_sport" ? "customSports" : "customHabits";
+      var inp = document.getElementById("habitInput_" + tid);
+      var iv = (inp ? inp.value : "").trim();
       if (!iv) { toast("请先输入项目名称"); return; }
-      DB.customHabits = DB.customHabits || [];
-      if (DB.customHabits.indexOf(iv) < 0) DB.customHabits.push(iv);
+      DB[ckey] = DB[ckey] || [];
+      if (DB[ckey].indexOf(iv) < 0) DB[ckey].push(iv);
       saveDB(); renderDay();
     }
   }
