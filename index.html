@@ -698,6 +698,20 @@ button.ghost.warn { background: var(--warn); color: #fff; }
   .banner-actions { width: 100%; justify-content: flex-start; margin-top: 8px; }
   .section-title { font-size: 16px; }
 }
+/* 平板 / 触控适配 */
+.menu-btn { font-size: 18px; padding: 6px 11px; margin-right: 6px; flex-shrink: 0; }
+.layout.nav-collapsed nav.sidebar { display: none; }
+/* 防止 iOS Safari 在输入框聚焦时整页缩放（字号 < 16px 会触发），避免布局被顶乱 */
+input, select, textarea { font-size: 16px; }
+/* 放大点按区域，方便小朋友手指操作 */
+nav .cat, nav .tpl-btn { min-height: 46px; }
+.habit-item { min-height: 42px; }
+.task .rate-btn, .task .done-btn { min-height: 40px; }
+@media (max-width: 820px) {
+  nav .cat .name { font-size: 11px; }
+  main.panel { padding: 10px; }
+  header.topbar .title { font-size: 17px; }
+}
 /* 离线同步面板 */
 .sync-box { font-size: 14px; }
 .sync-tip { background: var(--mint-soft); border-radius: 10px; padding: 10px 12px; color: var(--text); margin-bottom: 12px; line-height: 1.6; }
@@ -714,6 +728,7 @@ button.ghost.warn { background: var(--warn); color: #fff; }
 <body>
   <div id="app">
     <header class="topbar">
+      <button class="ghost menu-btn" id="navToggle" aria-label="收起或展开侧栏">☰</button>
       <div class="title">🚀 火箭一飞冲天</div>
       <div class="tools">
         <button class="ghost" id="btnWish">🎁 心愿</button>
@@ -2754,6 +2769,16 @@ window.__CHARS_6B__ = [
         }
       }
     });
+    // 连续打卡只看学科（基础/拓展），生活/运动作为附加激励、不计入分母，避免分母变大导致断签
+    var acadEnabled = 0, acadDone = 0;
+    day.tasks.forEach(function (t) {
+      if (!t.enabled || t.type === "chore") return;
+      acadEnabled++;
+      var tdone = t.type === "choice"
+        ? (t.options || []).some(function (o) { return subDoneToday(t, o); })
+        : !!t.done;
+      if (tdone) acadDone++;
+    });
     rawStars = Math.round(rawStars * 10) / 10;
     var lucky = (!punished && !backfill && DB.reminders.date === k && DB.reminders.count <= 1 && doneCount >= 1) ? 1 : 0;
     var flowers = 0, cashBonus = 0, cashPotential = 0;
@@ -2773,7 +2798,7 @@ window.__CHARS_6B__ = [
       }
     }
     // 连胜（仅当日真实结算，补结算不改连胜，防误续）
-    var ratio = enabledCount ? doneCount / enabledCount : 0;
+    var ratio = acadEnabled ? acadDone / acadEnabled : 0;
     var ignited = (!punished && !backfill && ratio >= 0.8);
     var st = DB.streak;
     if (!backfill) {
@@ -5407,6 +5432,8 @@ window.__CHARS_6B__ = [
     // 头部两个快捷按钮：滚动到对应区
     document.getElementById("btnWish").onclick = function () { document.getElementById("wish").scrollIntoView({ behavior: "smooth" }); };
     document.getElementById("btnAssets").onclick = function () { document.getElementById("assets").scrollIntoView({ behavior: "smooth" }); };
+    var navToggle = document.getElementById("navToggle");
+    if (navToggle) navToggle.onclick = function () { document.querySelector(".layout").classList.toggle("nav-collapsed"); };
     document.getElementById("modalClose").onclick = function () { document.getElementById("overlay").classList.remove("show"); };
   </script>
 
